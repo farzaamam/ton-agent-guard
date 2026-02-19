@@ -1,69 +1,119 @@
 # TON Agent Guard
 
-On-chain session-based spending guard for AI agents on TON.
+**Pure on-chain session-based execution guard for AI agents on TON.**
 
-Enables constrained, revocable, and time-bound execution authority for autonomous agents while preserving full owner custody.
-
----
-
-## Overview
-
-`AgentGuard` is a smart contract that allows an owner to grant controlled execution power to an agent address through configurable “sessions”.
-
-Each session defines strict on-chain policy rules such as:
-
-- Expiry (time-bound authority)
-- Per-transaction spending limit
-- Total session spending limit
-- Nonce-based replay protection
-- Target allowlist (restricted contract interaction)
-
-All policy enforcement happens fully on-chain.
-
-The agent never receives custody of funds directly — all execution flows through the guard.
+AgentGuard enables constrained, revocable, and time-bound execution authority for autonomous agents — while preserving full owner custody of funds.
 
 ---
 
-## Architecture
+## Why This Exists
+
+AI agents can now operate natively on TON.
+
+But giving an agent full wallet custody is dangerous.
+
+**AgentGuard introduces programmable, on-chain execution policies:**
+
+- The owner keeps custody
+- The agent receives bounded authority
+- All enforcement happens fully on-chain
+- No off-chain signatures
+- No trusted relayers
+
+This is infrastructure for secure agent wallets.
+
+---
+
+## Core Features
+
+Each session defines strict policy constraints:
+
+- ⏳ Expiry (time-bound authority)
+- 💰 Max per-transaction spending
+- 💎 Max total session spending
+- 🔁 Nonce-based replay protection
+- 🎯 Target allowlist (restricted contract interaction)
+- 🛑 Revocable at any time by owner
+
+The agent never directly controls funds.
+
+All execution flows through the guard contract.
+
+---
+
+## Contracts
 
 ### AgentGuard
 
-Core contract responsible for:
+Core policy enforcement contract.
 
-- Storing the owner
-- Creating and revoking sessions
-- Holding funds
-- Enforcing session policy
-- Forwarding validated internal messages to target contracts
+Responsibilities:
+- Stores owner
+- Creates & revokes sessions
+- Tracks spending + nonce
+- Enforces policy rules
+- Forwards validated internal messages
 
 ### CounterReceiver
 
-Minimal target contract used for development and testing.
-Receives `Ping` messages and increments an internal counter.
+Minimal contract used for testing.
+
+Accepts `Ping` and increments a counter.  
+Used to demonstrate constrained execution through AgentGuard.
 
 ---
 
-## Execution Model
+## Execution Flow
 
 1. Owner deploys `AgentGuard`
-2. Owner funds the guard contract
-3. Owner creates a session for an agent address
-4. Agent submits an `Execute` message
+2. Owner funds the guard
+3. Owner creates session for agent
+4. Agent sends `Execute`
 5. Guard validates:
    - Session exists
    - Not revoked
    - Not expired
    - Nonce matches
    - Spending limits respected
-   - Target is allowed
-6. Guard forwards the internal message with bounded TON value
+   - Target allowed
+6. Guard forwards internal message
 
-This design follows TON’s actor-based message model and avoids direct fund delegation.
+All policy enforcement happens inside the contract.
 
 ---
 
-## Development
+## TON MCP Compatibility
 
-### Install
+AgentGuard is designed to be compatible with TON MCP-powered agents.
+
+When using TON MCP (Model Context Protocol), an AI agent can interact with the blockchain via wallet operations. Instead of granting the agent full wallet control, the owner can set AgentGuard as the execution layer. The agent submits transactions through MCP, but all execution is routed through AgentGuard, which enforces on-chain policy constraints before forwarding value or contract calls.
+
+This enables:
+- Agent wallets with bounded authority
+- Safe DeFi interactions
+- Controlled jetton transfers
+- Secure NFT operations
+- Revocable and time-limited agent autonomy
+
+AgentGuard can act as the policy firewall for TON-native AI agents.
+
+---
+
+## Security Model
+
+- Funds are held by AgentGuard
+- Agent cannot bypass constraints
+- Replay attacks prevented via nonce
+- Target is restricted per session
+- Owner can revoke anytime
+
+This design leverages TON’s actor-based asynchronous model.
+
+---
+
+## Testing
+
+Full integration tests included.
+
 ```bash
-npm install
+npx blueprint test

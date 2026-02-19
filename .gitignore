@@ -22,4 +22,5 @@ Session.vim
 .emacs/
 .helix/
 FETCH_HEAD
+__MACOSX/
 .DS_Store
