@@ -15,4 +15,9 @@ contract CounterReceiver {
     receive(msg: Ping) {
         self.count = self.count + msg.note;
     }
+
+    get fun getCount(): Int {
+        return self.count;
+    }
+
 }

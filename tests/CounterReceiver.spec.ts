@@ -12,14 +12,11 @@ describe('CounterReceiver', () => {
         blockchain = await Blockchain.create();
 
         counterReceiver = blockchain.openContract(await CounterReceiver.fromInit());
-
         deployer = await blockchain.treasury('deployer');
 
         const deployResult = await counterReceiver.send(
             deployer.getSender(),
-            {
-                value: toNano('0.05'),
-            },
+            { value: toNano('0.05') },
             null,
         );
 
@@ -31,8 +28,21 @@ describe('CounterReceiver', () => {
         });
     });
 
-    it('should deploy', async () => {
-        // the check is done inside beforeEach
-        // blockchain and counterReceiver are ready to use
+    it('should increment count on Ping', async () => {
+        // initial state
+        expect(await counterReceiver.getGetCount()).toBe(0n);
+
+        // send Ping
+        await counterReceiver.send(
+            deployer.getSender(),
+            { value: toNano('0.05') },
+            {
+                $$type: 'Ping',
+                note: 1n,
+            }
+        );
+
+        // verify increment
+        expect(await counterReceiver.getGetCount()).toBe(1n);
     });
 });
