@@ -117,3 +117,18 @@ Full integration tests included.
 
 ```bash
 npx blueprint test
+
+---
+
+## Demo (Testnet)
+
+The demo will:
+	•	Deploy AgentGuard
+	•	Deploy CounterReceiver
+	•	Fund guard
+	•	Create session
+	•	Execute Ping through guard
+	•	Validate successful execution
+
+```bash
+npx blueprint run demo
