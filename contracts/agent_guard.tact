@@ -7,7 +7,7 @@ struct Session {
     spentTotal: Int;
     nonceExpected: Int;
     revoked: Bool;
-    allowedTarget: Address;
+    allowedTargets: map<Address, Bool>;
 }
 message Execute {
     sessionId: Int;
@@ -29,6 +29,16 @@ message(0x5de19e8) CreateSession {
 message Withdraw {
     amount: Int;
     to: Address;
+}
+
+message AddAllowedTarget {
+    sessionId: Int;
+    target: Address;
+}
+
+message RemoveAllowedTarget {
+    sessionId: Int;
+    target: Address;
 }
 
 contract AgentGuard {
@@ -61,6 +71,9 @@ contract AgentGuard {
         let id = self.nextSessionId;
         self.nextSessionId = id + 1;
 
+        let allow: map<Address, Bool> = emptyMap();
+        allow.set(msg.allowedTarget, true);
+
         let session: Session = Session{
             owner: self.owner,
             agent: msg.agent,
@@ -70,7 +83,7 @@ contract AgentGuard {
             spentTotal: 0,
             nonceExpected: 0,
             revoked: false,
-            allowedTarget: msg.allowedTarget,
+            allowedTargets: allow,
         };
 
         self.sessions.set(id, session);
@@ -107,16 +120,13 @@ contract AgentGuard {
     }    
 
     receive(msg: Execute) {
-        // Load session (your map.get returns nullable in your setup)
         let s = self.sessions.get(msg.sessionId);
         require(s != null, "NO_SESSION");
         let ss = s!!;
 
-        // Only the agent can execute
         require(sender() == ss.agent, "NOT_AGENT");
 
-        require(msg.target == ss.allowedTarget, "TARGET_NOT_ALLOWED"); 
-        // Session must be active
+        require(ss.allowedTargets.exists(msg.target), "TARGET_NOT_ALLOWED");
         require(!ss.revoked, "REVOKED");
         require(now() < ss.expiry, "EXPIRED");
 
@@ -125,10 +135,8 @@ contract AgentGuard {
         require(msg.value <= ss.maxPerTx, "OVER_MAX_PERTX");
         require(ss.spentTotal + msg.value <= ss.maxTotal, "OVER_MAX_TOTAL");
 
-        // Update accounting BEFORE sending
         ss.nonceExpected = ss.nonceExpected + 1;
         ss.spentTotal = ss.spentTotal + msg.value;
-
         self.sessions.set(msg.sessionId, ss);
 
         send(SendParameters{
@@ -137,5 +145,30 @@ contract AgentGuard {
             body: msg.body,
             bounce: true
         });
+    }
+
+    receive(msg: AddAllowedTarget) {
+    self.onlyOwner();
+
+    let sOpt = self.sessions.get(msg.sessionId);
+    require(sOpt != null, "NO_SESSION");
+    let s = sOpt!!;
+
+    require(!s.revoked, "REVOKED");
+    require(s.expiry > now(), "EXPIRED");
+
+    s.allowedTargets.set(msg.target, true);
+    self.sessions.set(msg.sessionId, s);
+    }
+
+    receive(msg: RemoveAllowedTarget) {
+        self.onlyOwner();
+
+        let sOpt = self.sessions.get(msg.sessionId);
+        require(sOpt != null, "NO_SESSION");
+        let s = sOpt!!;
+
+        s.allowedTargets.del(msg.target);
+        self.sessions.set(msg.sessionId, s);
     }
 }
