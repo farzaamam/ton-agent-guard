@@ -17,9 +17,11 @@ contract CounterReceiver {
     init() {
         self.count = 0;
     }
-
+    receive() {
+        // allow deploy with empty body
+    }
+   
     receive(msg: Ping) {
-        self.count = self.count + 1;
-        // Day 2 we’ll forward messages here and verify count increments
+        self.count = self.count + msg.note;
     }
 }

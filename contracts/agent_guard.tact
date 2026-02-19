@@ -16,6 +16,14 @@ struct Session {
     spentTotal: Int;
     nonceExpected: Int;
     revoked: Bool;
+    allowedTarget: Address;
+}
+message Execute {
+    sessionId: Int;
+    nonce: Int;
+    target: Address;
+    value: Int;
+    body: Cell;
 }
 message RevokeSession {
     sessionId: Int;
@@ -25,6 +33,7 @@ message(0x5de19e8) CreateSession {
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
+    allowedTarget: Address;
 }
 message Withdraw {
     amount: Int;
@@ -47,7 +56,7 @@ contract AgentGuard {
     }
 
     receive() {
-        cashback(sender());
+       
     }
 
     receive(msg: CreateSession) {
@@ -69,7 +78,8 @@ contract AgentGuard {
             maxPerTx: msg.maxPerTx,
             spentTotal: 0,
             nonceExpected: 0,
-            revoked: false
+            revoked: false,
+            allowedTarget: msg.allowedTarget,
         };
 
         self.sessions.set(id, session);
@@ -104,4 +114,37 @@ contract AgentGuard {
             bounce: false
         });
     }    
+
+    receive(msg: Execute) {
+        // Load session (your map.get returns nullable in your setup)
+        let s = self.sessions.get(msg.sessionId);
+        require(s != null, "NO_SESSION");
+        let ss = s!!;
+
+        // Only the agent can execute
+        require(sender() == ss.agent, "NOT_AGENT");
+
+        require(msg.target == ss.allowedTarget, "TARGET_NOT_ALLOWED"); 
+        // Session must be active
+        require(!ss.revoked, "REVOKED");
+        require(now() < ss.expiry, "EXPIRED");
+
+        require(msg.nonce == ss.nonceExpected, "BAD_NONCE");
+        require(msg.value > 0, "BAD_VALUE");
+        require(msg.value <= ss.maxPerTx, "OVER_MAX_PERTX");
+        require(ss.spentTotal + msg.value <= ss.maxTotal, "OVER_MAX_TOTAL");
+
+        // Update accounting BEFORE sending
+        ss.nonceExpected = ss.nonceExpected + 1;
+        ss.spentTotal = ss.spentTotal + msg.value;
+
+        self.sessions.set(msg.sessionId, ss);
+
+        send(SendParameters{
+            to: msg.target,
+            value: msg.value,
+            body: msg.body,
+            bounce: true
+        });
+    }
 }
