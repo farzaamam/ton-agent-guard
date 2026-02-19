@@ -7,12 +7,101 @@
 // and will enjoy storage write optimizations and use less gas overall.
 //
 // See: https://docs.tact-lang.org/book/contracts/#parameters
-contract AgentGuard() {
-    // Empty receiver for the deployment,
-    // which expects the `null` message body
+struct Session {
+    owner: Address;
+    agent: Address;
+    expiry: Int;
+    maxTotal: Int;
+    maxPerTx: Int;
+    spentTotal: Int;
+    nonceExpected: Int;
+    revoked: Bool;
+}
+message RevokeSession {
+    sessionId: Int;
+}
+message(0x5de19e8) CreateSession {
+    agent: Address;
+    expiry: Int;
+    maxTotal: Int;
+    maxPerTx: Int;
+}
+message Withdraw {
+    amount: Int;
+    to: Address;
+}
+
+contract AgentGuard {
+
+    owner: Address;
+    nextSessionId: Int;
+    sessions: map<Int, Session>;
+
+    init(owner: Address) {
+        self.owner = owner;
+        self.nextSessionId = 1;
+    }
+
+    fun onlyOwner() {
+        require(sender() == self.owner, "NOT_OWNER");
+    }
+
     receive() {
-        // Forward the remaining value in the
-        // incoming message back to the sender
         cashback(sender());
     }
+
+    receive(msg: CreateSession) {
+        self.onlyOwner();
+
+        require(msg.maxTotal > 0, "BAD_MAX_TOTAL");
+        require(msg.maxPerTx > 0, "BAD_MAX_PERTX");
+        require(msg.maxPerTx <= msg.maxTotal, "PERTX_GT_TOTAL");
+        require(msg.expiry > now(), "BAD_EXPIRY");
+
+        let id = self.nextSessionId;
+        self.nextSessionId = id + 1;
+
+        let session: Session = Session{
+            owner: self.owner,
+            agent: msg.agent,
+            expiry: msg.expiry,
+            maxTotal: msg.maxTotal,
+            maxPerTx: msg.maxPerTx,
+            spentTotal: 0,
+            nonceExpected: 0,
+            revoked: false
+        };
+
+        self.sessions.set(id, session);
+
+        // Optional for later: cashback(sender());  (but we usually keep value in contract)
+    }  
+
+    receive(msg: RevokeSession) {
+        self.onlyOwner();
+
+        // Try to load session
+        let s = self.sessions.get(msg.sessionId);
+
+        // If get() returns nullable, this check is needed:
+        require(s != null, "NO_SESSION");
+
+        let ss = s!!; // unwrap nullable Session?
+
+        require(!ss.revoked, "ALREADY_REVOKED");
+
+        ss.revoked = true;
+        self.sessions.set(msg.sessionId, ss);
+    }
+
+    receive(msg: Withdraw) {
+        self.onlyOwner();
+        require(msg.amount > 0, "BAD_AMOUNT");
+
+        send(SendParameters{
+            to: msg.to,
+            value: msg.amount,
+            bounce: false
+        });
+    }    
 }

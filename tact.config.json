@@ -10,6 +10,16 @@
         "external": false
       },
       "mode": "full"
+    },
+    {
+      "name": "CounterReceiver",
+      "path": "contracts/counter_receiver.tact",
+      "output": "build/CounterReceiver",
+      "options": {
+        "debug": false,
+        "external": false
+      },
+      "mode": "full"
     }
   ]
 }
