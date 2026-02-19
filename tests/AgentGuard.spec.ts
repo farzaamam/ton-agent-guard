@@ -11,15 +11,14 @@ describe('AgentGuard', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
-        agentGuard = blockchain.openContract(await AgentGuard.fromInit());
-
         deployer = await blockchain.treasury('deployer');
+
+        // ✅ Pass owner to init (AgentGuard expects owner in init)
+        agentGuard = blockchain.openContract(await AgentGuard.fromInit(deployer.address));
 
         const deployResult = await agentGuard.send(
             deployer.getSender(),
-            {
-                value: toNano('0.05'),
-            },
+            { value: toNano('0.05') },
             null,
         );
 
@@ -32,7 +31,6 @@ describe('AgentGuard', () => {
     });
 
     it('should deploy', async () => {
-        // the check is done inside beforeEach
-        // blockchain and agentGuard are ready to use
+        // already asserted in beforeEach
     });
 });
