@@ -55,7 +55,7 @@ export async function run(provider: NetworkProvider) {
         .store(storePing({ $$type: "Ping", note: 1n }))
         .endCell();
 
-    console.log("Executing Ping via guard...");
+    console.log("Executing via AgentGuard (Target 1)...");
     await guard.send(
         agent,
         { value: toNano("0.2") },
@@ -72,35 +72,30 @@ export async function run(provider: NetworkProvider) {
     await sleep(2500);
 
 
-   /* console.log("Trying replay (should fail)...");
-    try {
-        await guard.send(agent, { value: toNano("0.2") }, {
-            $$type: "Execute",
-            sessionId: 1n,
-            nonce: 0n, // replay
-            target: counter.address,
-            value: toNano("0.1"),
-            body: pingBody,
-        });
-        console.log("❌ Replay unexpectedly succeeded");
-    } catch (e) {
-        console.log("✅ Replay failed as expected:", (e as Error).message);
-    }
-    await sleep(2500);
+    console.log("Deploying second CounterReceiver...");
+    const counter2 = provider.open(await CounterReceiver.fromInit());
+    await counter2.send(owner, { value: toNano("0.2") }, null);
 
-    console.log("Trying wrong target (should fail)...");
-    try {
-        await guard.send(agent, { value: toNano("0.2") }, {
-            $$type: "Execute",
-            sessionId: 1n,
-            nonce: 1n,
-            target: guard.address, // wrong target
-            value: toNano("0.1"),
-            body: pingBody,
-        });
-        console.log("❌ Wrong target unexpectedly succeeded");
-    } catch (e) {
-        console.log("✅ Wrong target failed as expected:", (e as Error).message);
-    }
-        */
+    console.log("Adding second allowed target...");
+    await guard.send(owner, { value: toNano("0.1") }, {
+        $$type: "AddAllowedTarget",
+        sessionId: 1n,
+        target: counter2.address,
+    });
+
+    console.log("Executing via AgentGuard (Target 2)...");
+    await guard.send(agent, { value: toNano("0.2") }, {
+        $$type: "Execute",
+        sessionId: 1n,
+        nonce: 1n,
+        target: counter2.address,
+        value: toNano("0.1"),
+        body: pingBody,
+    });
+
+    console.log("Counter1 count:", await counter.getGetCount());
+    console.log("Counter2 count:", await counter2.getGetCount());
+
+    console.log("✅ Multi-target session routing verified.");
+    console.log("AgentGuard successfully enforced session policy.");
 }

@@ -56,9 +56,7 @@ contract AgentGuard {
         require(sender() == self.owner, "NOT_OWNER");
     }
 
-    receive() {
-       
-    }
+    receive() {}
 
     receive(msg: CreateSession) {
         self.onlyOwner();
@@ -87,8 +85,6 @@ contract AgentGuard {
         };
 
         self.sessions.set(id, session);
-
-        // Optional for later: cashback(sender());  (but we usually keep value in contract)
     }  
 
     receive(msg: RevokeSession) {
@@ -148,17 +144,17 @@ contract AgentGuard {
     }
 
     receive(msg: AddAllowedTarget) {
-    self.onlyOwner();
+        self.onlyOwner();
 
-    let sOpt = self.sessions.get(msg.sessionId);
-    require(sOpt != null, "NO_SESSION");
-    let s = sOpt!!;
+        let sOpt = self.sessions.get(msg.sessionId);
+        require(sOpt != null, "NO_SESSION");
+        let s = sOpt!!;
 
-    require(!s.revoked, "REVOKED");
-    require(s.expiry > now(), "EXPIRED");
+        require(!s.revoked, "REVOKED");
+        require(s.expiry > now(), "EXPIRED");
 
-    s.allowedTargets.set(msg.target, true);
-    self.sessions.set(msg.sessionId, s);
+        s.allowedTargets.set(msg.target, true);
+        self.sessions.set(msg.sessionId, s);
     }
 
     receive(msg: RemoveAllowedTarget) {
