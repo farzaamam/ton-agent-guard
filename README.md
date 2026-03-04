@@ -1,3 +1,15 @@
+## 🏆 TON AI Agent Fast Grants Winner
+
+AgentGuard was selected as a winner in the **TON AI Agent Fast Grants** round.
+
+AgentGuard provides on-chain guardrails for AI agents operating on TON:
+- Session-based authority
+- Spending limits
+- Replay protection
+- Multi-target execution policies
+
+This project explores safe infrastructure for **Agentic Wallets and autonomous systems on TON**.
+
 # TON Agent Guard
 
 **On-chain session-based execution guard for AI agents on TON.**
