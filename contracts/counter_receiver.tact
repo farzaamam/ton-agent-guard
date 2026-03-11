@@ -3,11 +3,14 @@ message Ping {
 }
 
 contract CounterReceiver {
+    id: Int;
     count: Int;
 
-    init() {
+    init(id: Int) {
+        self.id = id;
         self.count = 0;
     }
+
     receive() {}
    
     receive(msg: Ping) {
@@ -17,5 +20,4 @@ contract CounterReceiver {
     get fun getCount(): Int {
         return self.count;
     }
-
 }

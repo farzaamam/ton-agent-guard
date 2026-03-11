@@ -11,7 +11,7 @@ describe('CounterReceiver', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
-        counterReceiver = blockchain.openContract(await CounterReceiver.fromInit());
+        counterReceiver = blockchain.openContract(await CounterReceiver.fromInit(1n));
         deployer = await blockchain.treasury('deployer');
 
         const deployResult = await counterReceiver.send(
