@@ -1,5 +1,4 @@
 struct Session {
-    owner: Address;
     agent: Address;
     expiry: Int;
     maxTotal: Int;
@@ -73,7 +72,6 @@ contract AgentGuard {
         allow.set(msg.allowedTarget, true);
 
         let session: Session = Session{
-            owner: self.owner,
             agent: msg.agent,
             expiry: msg.expiry,
             maxTotal: msg.maxTotal,
