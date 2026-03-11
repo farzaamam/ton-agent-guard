@@ -448,6 +448,52 @@ describe("AgentGuard (integration)", () => {
         expect(await counter2.getGetCount()).toBe(2n);
     });
 
+    it("exposes session state and lock status via getters", async () => {
+        await createDefaultSession();
+
+        expect((await guard.getGetOwner()).toString()).toBe(owner.address.toString());
+        expect(await guard.getGetNextSessionId()).toBe(2n);
+        expect(await guard.getGetReservedTotal()).toBe(toNano("0.5"));
+        expect(await guard.getIsTargetAllowed(1n, counter.address)).toBe(true);
+        expect(await guard.getIsTargetAllowed(1n, counter2.address)).toBe(false);
+
+        const createdSession = await guard.getGetSession(1n);
+        expect(createdSession.agent.toString()).toBe(agent.address.toString());
+        expect(createdSession.expiry > BigInt(nowSec(blockchain))).toBe(true);
+        expect(createdSession.maxTotal).toBe(toNano("0.5"));
+        expect(createdSession.maxPerTx).toBe(toNano("0.2"));
+        expect(createdSession.spentTotal).toBe(0n);
+        expect(createdSession.nonceExpected).toBe(0n);
+        expect(createdSession.revoked).toBe(false);
+        expect(createdSession.lockedAmount).toBe(toNano("0.5"));
+
+        const exec = await guard.send(
+            agent.getSender(),
+            { value: toNano("0.2") },
+            {
+                $$type: "Execute",
+                sessionId: 1n,
+                nonce: 0n,
+                target: counter.address,
+                value: toNano("0.05"),
+                body: pingBody(3n),
+            }
+        );
+
+        expect(exec.transactions).toHaveTransaction({
+            from: agent.address,
+            to: guard.address,
+            success: true,
+        });
+
+        expect(await guard.getGetReservedTotal()).toBe(toNano("0.45"));
+
+        const updatedSession = await guard.getGetSession(1n);
+        expect(updatedSession.spentTotal).toBe(toNano("0.05"));
+        expect(updatedSession.nonceExpected).toBe(1n);
+        expect(updatedSession.lockedAmount).toBe(toNano("0.45"));
+    });
+
     it("owner can remove allowed target and execution then fails", async () => {
         await createDefaultSession();
 
@@ -526,6 +572,64 @@ describe("AgentGuard (integration)", () => {
             from: stranger.address,
             to: guard.address,
             success: false,
+        });
+    });
+
+    it("blocks over-withdrawal while a session is active and releases funds after expiry", async () => {
+        const expiry = BigInt(nowSec(blockchain) + 10);
+        await createDefaultSession(expiry);
+
+        const lockedBalance = await guard.getGetReservedTotal();
+        expect(lockedBalance).toBe(toNano("0.5"));
+
+        const availableBeforeExpiry = await guard.getGetAvailableBalance();
+        const blocked = await guard.send(
+            owner.getSender(),
+            { value: toNano("0.05") },
+            {
+                $$type: "Withdraw",
+                amount: availableBeforeExpiry + 1n,
+                to: owner.address,
+            }
+        );
+
+        expect(blocked.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+        });
+
+        blockchain.now = Number(expiry) + 1;
+
+        expect(await guard.getGetReservedTotal()).toBe(0n);
+        expect((await guard.getGetSession(1n)).lockedAmount).toBe(0n);
+
+        const availableAfterExpiry = await guard.getGetAvailableBalance();
+        const safeWithdrawAmount =
+            availableAfterExpiry > toNano("0.02")
+                ? availableAfterExpiry - toNano("0.02")
+                : availableAfterExpiry / 2n;
+
+        const released = await guard.send(
+            owner.getSender(),
+            { value: toNano("0.05") },
+            {
+                $$type: "Withdraw",
+                amount: safeWithdrawAmount,
+                to: owner.address,
+            }
+        );
+
+        expect(released.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: true,
+        });
+
+        expect(released.transactions).toHaveTransaction({
+            from: guard.address,
+            to: owner.address,
+            success: true,
         });
     });
 

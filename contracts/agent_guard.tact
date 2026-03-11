@@ -8,6 +8,17 @@ struct Session {
     revoked: Bool;
     allowedTargets: map<Address, Bool>;
 }
+
+struct SessionView {
+    agent: Address;
+    expiry: Int;
+    maxTotal: Int;
+    maxPerTx: Int;
+    spentTotal: Int;
+    nonceExpected: Int;
+    revoked: Bool;
+    lockedAmount: Int;
+}
 message Execute {
     sessionId: Int;
     nonce: Int;
@@ -55,6 +66,32 @@ contract AgentGuard {
         require(sender() == self.owner, "NOT_OWNER");
     }
 
+    fun lockedAmountForSession(session: Session): Int {
+        if (session.revoked) {
+            return 0;
+        }
+
+        if (session.expiry <= now()) {
+            return 0;
+        }
+
+        return session.maxTotal - session.spentTotal;
+    }
+
+    fun totalLockedFunds(): Int {
+        let total = 0;
+
+        foreach (sessionId, session in self.sessions) {
+            total = total + self.lockedAmountForSession(session);
+        }
+
+        return total;
+    }
+
+    fun availableContractBalance(): Int {
+        return myBalance() - context().value - self.totalLockedFunds();
+    }
+
     receive() {}
 
     receive(msg: CreateSession) {
@@ -64,6 +101,7 @@ contract AgentGuard {
         require(msg.maxPerTx > 0, "BAD_MAX_PERTX");
         require(msg.maxPerTx <= msg.maxTotal, "PERTX_GT_TOTAL");
         require(msg.expiry > now(), "BAD_EXPIRY");
+        require(self.availableContractBalance() >= msg.maxTotal, "INSUFFICIENT_AVAILABLE");
 
         let id = self.nextSessionId;
         self.nextSessionId = id + 1;
@@ -105,6 +143,12 @@ contract AgentGuard {
     receive(msg: Withdraw) {
         self.onlyOwner();
         require(msg.amount > 0, "BAD_AMOUNT");
+        require(self.availableContractBalance() >= msg.amount, "INSUFFICIENT_AVAILABLE");
+
+        let lockedFunds = self.totalLockedFunds();
+        if (lockedFunds > 0) {
+            nativeReserve(lockedFunds, ReserveExact);
+        }
 
         send(SendParameters{
             to: msg.to,
@@ -132,6 +176,11 @@ contract AgentGuard {
         ss.nonceExpected = ss.nonceExpected + 1;
         ss.spentTotal = ss.spentTotal + msg.value;
         self.sessions.set(msg.sessionId, ss);
+
+        let lockedFunds = self.totalLockedFunds();
+        if (lockedFunds > 0) {
+            nativeReserve(lockedFunds, ReserveExact);
+        }
 
         send(SendParameters{
             to: msg.target,
@@ -164,5 +213,46 @@ contract AgentGuard {
 
         s.allowedTargets.del(msg.target);
         self.sessions.set(msg.sessionId, s);
+    }
+
+    get fun getOwner(): Address {
+        return self.owner;
+    }
+
+    get fun getNextSessionId(): Int {
+        return self.nextSessionId;
+    }
+
+    get fun getReservedTotal(): Int {
+        return self.totalLockedFunds();
+    }
+
+    get fun getAvailableBalance(): Int {
+        return myBalance() - self.totalLockedFunds();
+    }
+
+    get fun getSession(sessionId: Int): SessionView {
+        let sOpt = self.sessions.get(sessionId);
+        require(sOpt != null, "NO_SESSION");
+        let s = sOpt!!;
+
+        return SessionView{
+            agent: s.agent,
+            expiry: s.expiry,
+            maxTotal: s.maxTotal,
+            maxPerTx: s.maxPerTx,
+            spentTotal: s.spentTotal,
+            nonceExpected: s.nonceExpected,
+            revoked: s.revoked,
+            lockedAmount: self.lockedAmountForSession(s),
+        };
+    }
+
+    get fun isTargetAllowed(sessionId: Int, target: Address): Bool {
+        let sOpt = self.sessions.get(sessionId);
+        require(sOpt != null, "NO_SESSION");
+        let s = sOpt!!;
+
+        return s.allowedTargets.exists(target);
     }
 }

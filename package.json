@@ -5,7 +5,7 @@
         "bp": "blueprint",
         "start": "blueprint run",
         "build": "blueprint build",
-        "test": "jest --verbose",
+        "test": "jest --verbose --watchman=false",
         "release": "blueprint pack && npm publish --access public"
     },
     "dependencies": {
