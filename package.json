@@ -1,6 +1,9 @@
 {
     "name": "ton-agent-guard",
     "version": "0.0.1",
+    "workspaces": [
+        "apps/web"
+    ],
     "scripts": {
         "bp": "blueprint",
         "start": "blueprint run",
