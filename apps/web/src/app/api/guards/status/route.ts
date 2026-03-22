@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
             isDeployed: state === "active",
             state,
             balance,
+            reservedBalance: null,
+            availableBalance: null,
         });
     } catch (error) {
         return NextResponse.json(
