@@ -1,6 +1,9 @@
 import { Blockchain, SandboxContract, TreasuryContract } from "@ton/sandbox";
-import { toNano, beginCell } from "@ton/core";
-import { AgentGuard } from "../build/AgentGuard/AgentGuard_AgentGuard";
+import { Cell, toNano, beginCell } from "@ton/core";
+import {
+    AgentGuard,
+    AgentGuard_errors_backward,
+} from "../build/AgentGuard/AgentGuard_AgentGuard";
 import {
     CounterReceiver,
     storePing,
@@ -9,6 +12,7 @@ import "@ton/test-utils";
 
 const nowSec = (bc: Blockchain) => bc.now ?? Math.floor(Date.now() / 1000);
 const PING_OPCODE = BigInt(CounterReceiver.opcodes.Ping);
+const cellHashInt = (cell: Cell) => BigInt(`0x${cell.hash().toString("hex")}`);
 
 describe("AgentGuard (integration)", () => {
     let blockchain: Blockchain;
@@ -97,7 +101,9 @@ describe("AgentGuard (integration)", () => {
         expiry?: bigint,
         target = counter.address,
         sessionAgent = agent.address,
-        allowedOp = PING_OPCODE
+        allowedOp = PING_OPCODE,
+        policyMode = 0n,
+        bodyHash = 0n
     ) => {
         const sessionExpiry = expiry ?? BigInt(nowSec(blockchain) + 3600);
 
@@ -109,6 +115,8 @@ describe("AgentGuard (integration)", () => {
                 agent: sessionAgent,
                 target,
                 allowedOp,
+                policyMode,
+                bodyHash,
                 expiry: sessionExpiry,
                 maxTotal: toNano("0.5"),
                 maxPerTx: toNano("0.2"),
@@ -178,6 +186,97 @@ describe("AgentGuard (integration)", () => {
         expect(await counter.getGetCount()).toBe(0n);
     });
 
+    it("rejects negative allowedOp when creating a session", async () => {
+        const res = await createDefaultSession(undefined, counter.address, agent.address, -1n);
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.BAD_ALLOWED_OP,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+    });
+
+    it("rejects allowedOp above 0xffffffff when creating a session", async () => {
+        const res = await createDefaultSession(
+            undefined,
+            counter.address,
+            agent.address,
+            0x1_0000_0000n
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.BAD_ALLOWED_OP,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+    });
+
+    it("rejects invalid policyMode when creating a session", async () => {
+        const res = await createDefaultSession(
+            undefined,
+            counter.address,
+            agent.address,
+            PING_OPCODE,
+            2n
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.BAD_POLICY_MODE,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+    });
+
+    it("rejects opcode-only mode with nonzero bodyHash", async () => {
+        const strictBody = pingBody(11n);
+        const res = await createDefaultSession(
+            undefined,
+            counter.address,
+            agent.address,
+            PING_OPCODE,
+            0n,
+            cellHashInt(strictBody)
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.BODY_HASH_MUST_BE_ZERO,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+    });
+
+    it("rejects exact-body-hash mode with zero bodyHash", async () => {
+        const res = await createDefaultSession(
+            undefined,
+            counter.address,
+            agent.address,
+            PING_OPCODE,
+            1n,
+            0n
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.BODY_HASH_REQUIRED,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+    });
+
     it("fails on replay nonce (same nonce twice)", async () => {
         await createDefaultSession();
 
@@ -229,6 +328,8 @@ describe("AgentGuard (integration)", () => {
                 agent: agent.address,
                 target: counter.address,
                 allowedOp: PING_OPCODE,
+                policyMode: 0n,
+                bodyHash: 0n,
                 expiry,
                 maxTotal: toNano("0.5"),
                 maxPerTx: toNano("0.2"),
@@ -486,6 +587,141 @@ describe("AgentGuard (integration)", () => {
         expect(await counter2.getGetCount()).toBe(9n);
     });
 
+    it("opcode-only policy executes successfully without a body hash requirement", async () => {
+        const body = pingBody(21n);
+        const create = await createDefaultSession(
+            undefined,
+            counter.address,
+            agent.address,
+            PING_OPCODE,
+            0n,
+            0n
+        );
+
+        expect(create.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: true,
+        });
+
+        const createdSession = await guard.getGetSession(1n);
+        expect(createdSession.policyMode).toBe(0n);
+        expect(createdSession.bodyHash).toBe(0n);
+
+        const exec = await guard.send(
+            agent.getSender(),
+            { value: toNano("0.2") },
+            {
+                $$type: "Execute",
+                sessionId: 1n,
+                nonce: 0n,
+                value: toNano("0.05"),
+                body,
+            }
+        );
+
+        expect(exec.transactions).toHaveTransaction({
+            from: agent.address,
+            to: guard.address,
+            success: true,
+        });
+
+        expect(exec.transactions).toHaveTransaction({
+            from: guard.address,
+            to: counter.address,
+            success: true,
+        });
+
+        expect(await counter.getGetCount()).toBe(21n);
+    });
+
+    it("exact-body-hash policy executes successfully with the configured body hash", async () => {
+        const strictBody = pingBody(22n);
+        const strictBodyHash = cellHashInt(strictBody);
+        const create = await createDefaultSession(
+            undefined,
+            counter.address,
+            agent.address,
+            PING_OPCODE,
+            1n,
+            strictBodyHash
+        );
+
+        expect(create.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: true,
+        });
+
+        const createdSession = await guard.getGetSession(1n);
+        expect(createdSession.policyMode).toBe(1n);
+        expect(createdSession.bodyHash).toBe(strictBodyHash);
+
+        const exec = await guard.send(
+            agent.getSender(),
+            { value: toNano("0.2") },
+            {
+                $$type: "Execute",
+                sessionId: 1n,
+                nonce: 0n,
+                value: toNano("0.05"),
+                body: strictBody,
+            }
+        );
+
+        expect(exec.transactions).toHaveTransaction({
+            from: agent.address,
+            to: guard.address,
+            success: true,
+        });
+
+        expect(exec.transactions).toHaveTransaction({
+            from: guard.address,
+            to: counter.address,
+            success: true,
+        });
+
+        expect(await counter.getGetCount()).toBe(22n);
+    });
+
+    it("fails exact-body-hash execution when body payload differs but opcode stays the same", async () => {
+        const strictBody = pingBody(30n);
+        const mismatchedBody = pingBody(31n);
+        await createDefaultSession(
+            undefined,
+            counter.address,
+            agent.address,
+            PING_OPCODE,
+            1n,
+            cellHashInt(strictBody)
+        );
+
+        const createdSession = await guard.getGetSession(1n);
+        expect(createdSession.policyMode).toBe(1n);
+        expect(createdSession.bodyHash).toBe(cellHashInt(strictBody));
+
+        const res = await guard.send(
+            agent.getSender(),
+            { value: toNano("0.2") },
+            {
+                $$type: "Execute",
+                sessionId: 1n,
+                nonce: 0n,
+                value: toNano("0.05"),
+                body: mismatchedBody,
+            }
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: agent.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.BODY_HASH_MISMATCH,
+        });
+
+        expect(await counter.getGetCount()).toBe(0n);
+    });
+
     it("exposes session state and lock status via getters", async () => {
         await createDefaultSession();
 
@@ -497,6 +733,8 @@ describe("AgentGuard (integration)", () => {
         expect(createdSession.agent.toString()).toBe(agent.address.toString());
         expect(createdSession.target.toString()).toBe(counter.address.toString());
         expect(createdSession.allowedOp).toBe(PING_OPCODE);
+        expect(createdSession.policyMode).toBe(0n);
+        expect(createdSession.bodyHash).toBe(0n);
         expect(createdSession.expiry > BigInt(nowSec(blockchain))).toBe(true);
         expect(createdSession.maxTotal).toBe(toNano("0.5"));
         expect(createdSession.maxPerTx).toBe(toNano("0.2"));
@@ -528,6 +766,8 @@ describe("AgentGuard (integration)", () => {
         const updatedSession = await guard.getGetSession(1n);
         expect(updatedSession.target.toString()).toBe(counter.address.toString());
         expect(updatedSession.allowedOp).toBe(PING_OPCODE);
+        expect(updatedSession.policyMode).toBe(0n);
+        expect(updatedSession.bodyHash).toBe(0n);
         expect(updatedSession.spentTotal).toBe(toNano("0.05"));
         expect(updatedSession.nonceExpected).toBe(1n);
         expect(updatedSession.lockedAmount).toBe(toNano("0.45"));

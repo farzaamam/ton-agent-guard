@@ -30,7 +30,7 @@ It stores session state, validates execution requests, and forwards internal mes
 ### Target Contract
 A contract fixed for a given session.
 
-If the target or body opcode does not match the session, execution is rejected.
+If the configured target or body policy does not match the session, execution is rejected.
 
 ---
 
@@ -39,14 +39,16 @@ If the target or body opcode does not match the session, execution is rejected.
 Each session contains:
 
 - authorized agent address
+- fixed target contract
+- allowed body opcode
+- `policyMode`
+- `bodyHash` for exact-body-hash sessions
 - expiry timestamp
 - max total spend
 - max per-transaction spend
-- allowed body opcode
 - spent total so far
 - expected nonce
 - revoked status
-- fixed target contract
 
 A session defines the execution envelope for an autonomous agent.
 
@@ -66,8 +68,9 @@ A session defines the execution envelope for an autonomous agent.
    - nonce matches expected value
    - value is within per-tx limit
    - cumulative spend remains within session max
-   - target matches the session
+   - forwarded target is fixed by the session
    - body opcode matches the session
+   - if `policyMode = 1`, body hash matches the session `bodyHash`
 6. If valid, AgentGuard forwards the internal message to the target contract
 
 If validation fails, execution is rejected on-chain.
@@ -83,7 +86,9 @@ AgentGuard currently enforces:
 - bounded per-transaction spending
 - replay protection via nonce
 - fixed target constraints
-- allowed opcode constraints
+- `policyMode`-based body constraints:
+  - opcode-only
+  - exact-body-hash
 - owner-controlled session revocation
 
 All enforcement happens on-chain inside the guard contract.
@@ -102,7 +107,14 @@ Instead of handing wallet authority directly to an agent, execution is mediated 
 
 ## Current Limitations
 
-AgentGuard currently provides target + opcode execution constraints, not full payload-level restrictions.
+AgentGuard currently provides two body policy modes:
+
+- opcode-only
+- exact-body-hash
+
+Opcode-only mode is broad if the target method accepts flexible arguments.
+
+Exact-body-hash mode narrows this by allowing only one exact pre-approved payload, but it still does not provide general semantic policy enforcement.
 
 Other important limitations:
 
@@ -110,5 +122,6 @@ Other important limitations:
 - multiple sessions may exist simultaneously without isolated liquidity
 - accepted execution attempts consume session quota
 - approval-based escalation is not yet implemented
+- no arbitrary field-level predicates such as recipient allowlists or amount ranges
 
 This makes the current design a session-scoped execution firewall rather than a full semantic policy engine.

@@ -2,6 +2,8 @@ struct Session {
     agent: Address;
     target: Address;
     allowedOp: Int;
+    policyMode: Int;
+    bodyHash: Int;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
@@ -14,6 +16,8 @@ struct SessionView {
     agent: Address;
     target: Address;
     allowedOp: Int;
+    policyMode: Int;
+    bodyHash: Int;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
@@ -38,6 +42,8 @@ message(0x2169f4b3) CreateSession {
     agent: Address;
     target: Address;
     allowedOp: Int;
+    policyMode: Int;
+    bodyHash: Int;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
@@ -107,6 +113,15 @@ contract AgentGuard {
 
         self.validateSessionEndpoints(msg.agent, msg.target);
 
+        require(msg.allowedOp >= 0, "BAD_ALLOWED_OP");
+        require(msg.allowedOp <= 0xffffffff, "BAD_ALLOWED_OP");
+        require(msg.policyMode == 0 || msg.policyMode == 1, "BAD_POLICY_MODE");
+        if (msg.policyMode == 0) {
+            require(msg.bodyHash == 0, "BODY_HASH_MUST_BE_ZERO");
+        } else {
+            require(msg.bodyHash != 0, "BODY_HASH_REQUIRED");
+        }
+
         require(msg.maxTotal > 0, "BAD_MAX_TOTAL");
         require(msg.maxPerTx > 0, "BAD_MAX_PERTX");
         require(msg.maxPerTx <= msg.maxTotal, "PERTX_GT_TOTAL");
@@ -117,6 +132,8 @@ contract AgentGuard {
             agent: msg.agent,
             target: msg.target,
             allowedOp: msg.allowedOp,
+            policyMode: msg.policyMode,
+            bodyHash: msg.bodyHash,
             expiry: msg.expiry,
             maxTotal: msg.maxTotal,
             maxPerTx: msg.maxPerTx,
@@ -176,6 +193,12 @@ contract AgentGuard {
         require(msg.value <= s.maxPerTx, "OVER_MAX_PERTX");
         require(s.spentTotal + msg.value <= s.maxTotal, "OVER_MAX_TOTAL");
         require(self.bodyOpcode(msg.body) == s.allowedOp, "BAD_OP");
+        if (s.policyMode == 1) {
+            let bodyHash = msg.body.hash();
+            require(bodyHash == s.bodyHash, "BODY_HASH_MISMATCH");
+        } else {
+            require(s.policyMode == 0, "BAD_POLICY_MODE");
+        }
 
         s.nonceExpected += 1;
         s.spentTotal += msg.value;
@@ -220,6 +243,8 @@ contract AgentGuard {
             agent: s.agent,
             target: s.target,
             allowedOp: s.allowedOp,
+            policyMode: s.policyMode,
+            bodyHash: s.bodyHash,
             expiry: s.expiry,
             maxTotal: s.maxTotal,
             maxPerTx: s.maxPerTx,

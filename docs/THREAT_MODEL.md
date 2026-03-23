@@ -23,10 +23,17 @@ Expired sessions cannot execute.
 Revoked sessions cannot execute.
 
 ### Interaction with non-approved contracts or actions
-Execution is limited to the session's configured target and allowed opcode.
+Execution is limited to the session's configured target and body policy.
+
+For opcode-only sessions, this means target + allowed opcode are fixed.
+
+For exact-body-hash sessions, this means target + allowed opcode + exact `bodyHash` are fixed.
 
 ### Unauthorized execution sender
 Only the agent address assigned to the session can execute through that session.
+
+### Payload mutation in strict sessions
+Exact-body-hash sessions additionally reject execution if the forwarded body differs from the pre-approved body, even when the opcode still matches.
 
 ---
 
@@ -35,11 +42,20 @@ Only the agent address assigned to the session can execute through that session.
 ### Malicious or vulnerable target contracts
 If a target contract is configured for a session, AgentGuard does not validate the safety of that target’s internal logic.
 
-### Unsafe payload semantics beyond opcode
-Current enforcement is target + opcode-level, not full payload-level semantics. A target may still receive bodies whose leading 32-bit opcode is correct but whose remaining fields are still unsafe for the owner's intended policy.
+### Unsafe payload semantics in opcode-only sessions
+Opcode-only sessions do not constrain arbitrary arguments inside a target method. A target may still receive bodies whose leading 32-bit opcode is correct but whose remaining fields are not what the owner intended.
+
+### General semantic policy enforcement
+Exact-body-hash sessions materially narrow payload risk by pinning one exact body, but AgentGuard still does not provide general-purpose semantic policy logic.
+
+It does not currently express rules such as:
+
+- any amount up to X
+- any recipient from allowlist Y
+- field-level predicates over arbitrary payloads
 
 ### Owner mistakes
-If the owner configures the wrong target or opcode, AgentGuard will still enforce that incorrect policy exactly as configured.
+If the owner configures the wrong target, opcode, or strict `bodyHash`, AgentGuard will still enforce that incorrect policy exactly as configured.
 
 ### Liquidity isolation across sessions
 Session budgets are not backed by reserved balances. Multiple sessions may depend on the same contract-held funds.
@@ -68,14 +84,16 @@ The current model assumes:
 ### Spend is consumed on accepted execution attempts
 Once an execution request passes guard checks and is forwarded, session spend and nonce advance. This is true even if downstream behavior is not economically useful.
 
-### Permissions are target + opcode-level
-Current policy checks whether the destination contract and the first 32-bit body opcode match the session. It does not yet restrict the rest of the payload or enforce richer method semantics.
+### Permissions depend on `policyMode`
+`policyMode = 0` enforces target, opcode, budget, expiry, and nonce, but does not restrict the rest of the payload.
+
+`policyMode = 1` adds exact `bodyHash` enforcement. This protects against payload mutation and allows exact pre-approved payload execution, but it is still not a general semantic policy engine.
 
 ---
 
 ## Known v0 Limitations
 
-- no payload templates or argument constraints beyond opcode
+- no argument-level rules beyond exact `bodyHash` matching
 - no approval escalation path
 - no per-session reserved liquidity
 - no richer risk scoring or policy composition
@@ -88,4 +106,6 @@ AgentGuard v0 is a practical on-chain session guard for bounded autonomous execu
 
 It significantly reduces delegation risk compared with direct wallet authority, while remaining intentionally simple and TON-native.
 
-Its current strongest form is a session-scoped execution firewall for agents.
+Its default form is a session-scoped execution firewall for agents.
+
+Its stricter form is deterministic action authorization for one exact pre-approved payload.
