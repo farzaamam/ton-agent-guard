@@ -32,6 +32,7 @@ type WithdrawGuardState =
     | "failed";
 
 const WITHDRAW_GUARD_TRANSACTION_VALUE = toNano("0.02").toString();
+const WITHDRAW_GUARD_SAFETY_BUFFER = toNano("0.02");
 
 const statusToneClasses: Record<WithdrawGuardState, string> = {
     idle: "text-white/60",
@@ -70,6 +71,24 @@ function prepareWithdrawPayload(amount: bigint, ownerAddress: string) {
     };
 }
 
+function getSafeWithdrawAmount(availableBalance: string | null) {
+    if (!availableBalance) {
+        return null;
+    }
+
+    const parsedAvailableBalance = BigInt(availableBalance);
+
+    if (parsedAvailableBalance <= 0n) {
+        return 0n;
+    }
+
+    if (parsedAvailableBalance > WITHDRAW_GUARD_SAFETY_BUFFER) {
+        return parsedAvailableBalance - WITHDRAW_GUARD_SAFETY_BUFFER;
+    }
+
+    return parsedAvailableBalance / 2n;
+}
+
 export function WithdrawGuardCard({
     guardAddress,
     ownerAddress,
@@ -88,6 +107,7 @@ export function WithdrawGuardCard({
         useState<WithdrawGuardState>("idle");
     const [amountError, setAmountError] = useState("");
     const [statusText, setStatusText] = useState("");
+    const safeWithdrawAmount = getSafeWithdrawAmount(availableBalance);
 
     const isBusy =
         submissionState === "validating" ||
@@ -95,7 +115,7 @@ export function WithdrawGuardCard({
         submissionState === "submitted";
 
     const hasKnownWithdrawableBalance =
-        availableBalance !== null ? BigInt(availableBalance) > 0n : true;
+        safeWithdrawAmount !== null ? safeWithdrawAmount > 0n : true;
     const canSubmit =
         isWalletConnected &&
         isOwnerConnected &&
@@ -116,11 +136,11 @@ export function WithdrawGuardCard({
         ? "Connect the owner wallet to withdraw unlocked guard funds."
         : !isOwnerConnected
           ? "Only the wallet that resolves to this AgentGuard can withdraw guard funds."
-          : !isGuardActive
-            ? "This AgentGuard must be active before funds can be withdrawn."
-            : availableBalance === "0"
-              ? "No unlocked balance is currently available to withdraw."
-              : "Withdraw sends unlocked TON back to the connected owner wallet. A small execution amount is attached to call the contract.";
+            : !isGuardActive
+              ? "This AgentGuard must be active before funds can be withdrawn."
+              : safeWithdrawAmount === 0n
+                ? "No unlocked balance is currently available to withdraw."
+              : "Withdraw sends unlocked TON back to the connected owner wallet. Max leaves a small fee buffer so the contract call can complete.";
 
     const handleAmountChange = (value: string) => {
         if (value && !/^\d*(\.\d{0,9})?$/.test(value)) {
@@ -137,14 +157,14 @@ export function WithdrawGuardCard({
     };
 
     const handleUseMax = () => {
-        if (!availableBalance || isBusy) {
+        if (safeWithdrawAmount === null || isBusy) {
             return;
         }
 
         setSubmissionState("idle");
         setAmountError("");
         setStatusText("");
-        setAmount(fromNano(availableBalance));
+        setAmount(fromNano(safeWithdrawAmount));
     };
 
     const handleSubmit = async () => {
@@ -199,10 +219,10 @@ export function WithdrawGuardCard({
             return;
         }
 
-        if (availableBalance && withdrawAmount > BigInt(availableBalance)) {
+        if (safeWithdrawAmount !== null && withdrawAmount > safeWithdrawAmount) {
             setAmountError(
-                `Withdraw amount exceeds available balance (${formatTonValue(
-                    availableBalance,
+                `Withdraw amount exceeds the safe max (${formatTonValue(
+                    safeWithdrawAmount.toString(),
                     {
                         placeholder: "0 TON",
                         maximumFractionDigits: 4,
@@ -211,7 +231,7 @@ export function WithdrawGuardCard({
             );
             setSubmissionState("failed");
             setStatusText(
-                "Lower the withdraw amount or wait for more funds to unlock."
+                "Lower the withdraw amount to leave a small fee buffer for the contract call."
             );
             return;
         }
@@ -322,7 +342,7 @@ export function WithdrawGuardCard({
                 <button
                     type="button"
                     onClick={handleUseMax}
-                    disabled={!availableBalance || isBusy}
+                    disabled={safeWithdrawAmount === null || safeWithdrawAmount <= 0n || isBusy}
                     className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     Max
@@ -345,6 +365,13 @@ export function WithdrawGuardCard({
                     </p>
                     <p className="mt-2 text-sm text-white">
                         {formatTonValue(availableBalance, {
+                            placeholder: "Unavailable",
+                            maximumFractionDigits: 4,
+                        })}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-white/45">
+                        Safe max now:{" "}
+                        {formatTonValue(safeWithdrawAmount?.toString(), {
                             placeholder: "Unavailable",
                             maximumFractionDigits: 4,
                         })}

@@ -50,6 +50,7 @@ type PreparedCreateSessionRequest = {
 };
 
 const CREATE_SESSION_TRANSACTION_VALUE = toNano("0.1").toString();
+const CREATE_SESSION_SAFETY_BUFFER = toNano("0.02");
 
 const statusToneClasses: Record<CreateSessionState, string> = {
     idle: "text-white/60",
@@ -68,6 +69,24 @@ const statusLabels: Record<CreateSessionState, string> = {
     refreshed: "Refreshed",
     failed: "Failed",
 };
+
+function getSafeSessionMaxTotal(availableBalance: string | null) {
+    if (!availableBalance) {
+        return null;
+    }
+
+    const parsedAvailableBalance = BigInt(availableBalance);
+
+    if (parsedAvailableBalance <= 0n) {
+        return 0n;
+    }
+
+    if (parsedAvailableBalance > CREATE_SESSION_SAFETY_BUFFER) {
+        return parsedAvailableBalance - CREATE_SESSION_SAFETY_BUFFER;
+    }
+
+    return parsedAvailableBalance / 2n;
+}
 
 function padDatePart(value: number) {
     return value.toString().padStart(2, "0");
@@ -272,6 +291,7 @@ export function CreateSessionCard({
     const [submissionState, setSubmissionState] =
         useState<CreateSessionState>("idle");
     const [statusText, setStatusText] = useState("");
+    const safeSessionMaxTotal = getSafeSessionMaxTotal(availableBalance);
 
     const isBusy =
         submissionState === "validating" ||
@@ -296,7 +316,7 @@ export function CreateSessionCard({
           ? "Only the wallet that resolves to this AgentGuard can create sessions."
           : !isGuardActive
             ? "This AgentGuard must be active before sessions can be created."
-            : "Each session starts with one initial allowed target. Additional targets can be added only after the session exists.";
+            : "Each session starts with one initial allowed target. Additional targets can be added only after the session exists. Leave a small balance buffer when setting max total.";
 
     const updateField = (field: CreateSessionField, value: string) => {
         if (
@@ -351,12 +371,12 @@ export function CreateSessionCard({
         }
 
         if (
-            availableBalance &&
-            BigInt(validation.prepared.maxTotal) > BigInt(availableBalance)
+            safeSessionMaxTotal !== null &&
+            BigInt(validation.prepared.maxTotal) > safeSessionMaxTotal
         ) {
             setFieldErrors({
-                maxTotal: `Max total exceeds available guard balance (${formatTonValue(
-                    availableBalance,
+                maxTotal: `Max total exceeds the safe session max (${formatTonValue(
+                    safeSessionMaxTotal.toString(),
                     {
                         placeholder: "0 TON",
                         maximumFractionDigits: 4,
@@ -365,7 +385,7 @@ export function CreateSessionCard({
             });
             setSubmissionState("failed");
             setStatusText(
-                "Fund the guard or lower max total before creating this session."
+                "Lower max total slightly to leave execution headroom on the guard."
             );
             return;
         }
@@ -528,6 +548,13 @@ export function CreateSessionCard({
                         </p>
                         <p className="mt-2 text-sm text-white">
                             {formatTonValue(availableBalance, {
+                                placeholder: "Unavailable",
+                                maximumFractionDigits: 4,
+                            })}
+                        </p>
+                        <p className="mt-2 text-xs leading-5 text-white/45">
+                            Safe max total now:{" "}
+                            {formatTonValue(safeSessionMaxTotal?.toString(), {
                                 placeholder: "Unavailable",
                                 maximumFractionDigits: 4,
                             })}
