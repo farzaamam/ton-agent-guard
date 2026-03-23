@@ -1,8 +1,14 @@
 import "server-only";
 
 import { Address } from "@ton/core";
-import { AgentGuard } from "../../../../../build/AgentGuard/AgentGuard_AgentGuard";
-import type { GuardStatusResponse } from "@/lib/agent-guard/guard-status";
+import {
+    AgentGuard,
+    type SessionView,
+} from "../../../../../build/AgentGuard/AgentGuard_AgentGuard";
+import type {
+    GuardSessionSummary,
+    GuardStatusResponse,
+} from "@/lib/agent-guard/guard-status";
 import { getTonClient } from "@/lib/ton/get-ton-client";
 
 function isRateLimitedError(error: unknown) {
@@ -37,6 +43,47 @@ async function readOptionalGetter(
     }
 }
 
+async function readSessionSummaries(
+    agentGuard: {
+        getGetSession: (sessionId: bigint) => Promise<SessionView>;
+    },
+    nextSessionId: string | null
+) {
+    if (!nextSessionId) {
+        return [];
+    }
+
+    const parsedNextSessionId = BigInt(nextSessionId);
+
+    if (parsedNextSessionId <= 1n) {
+        return [];
+    }
+
+    const sessions: GuardSessionSummary[] = [];
+
+    for (let sessionId = 1n; sessionId < parsedNextSessionId; sessionId += 1n) {
+        try {
+            const session = await agentGuard.getGetSession(sessionId);
+
+            sessions.push({
+                id: sessionId.toString(),
+                agent: session.agent.toString(),
+                expiry: session.expiry.toString(),
+                maxTotal: session.maxTotal.toString(),
+                maxPerTx: session.maxPerTx.toString(),
+                spentTotal: session.spentTotal.toString(),
+                nonceExpected: session.nonceExpected.toString(),
+                revoked: session.revoked,
+                lockedAmount: session.lockedAmount.toString(),
+            });
+        } catch {
+            continue;
+        }
+    }
+
+    return sessions;
+}
+
 export async function readGuardStatus(addressInput: string): Promise<GuardStatusResponse> {
     try {
         const tonClient = getTonClient();
@@ -47,6 +94,7 @@ export async function readGuardStatus(addressInput: string): Promise<GuardStatus
         let nextSessionId: string | null = null;
         let reservedBalance: string | null = null;
         let availableBalance: string | null = null;
+        let sessions: GuardSessionSummary[] = [];
 
         if (state === "active") {
             const agentGuard = tonClient.open(AgentGuard.fromAddress(address));
@@ -62,6 +110,7 @@ export async function readGuardStatus(addressInput: string): Promise<GuardStatus
                     : await readOptionalGetter(() =>
                           agentGuard.getGetAvailableBalance()
                       );
+            sessions = await readSessionSummaries(agentGuard, nextSessionId);
         }
 
         return {
@@ -72,6 +121,7 @@ export async function readGuardStatus(addressInput: string): Promise<GuardStatus
             reservedBalance,
             availableBalance,
             nextSessionId,
+            sessions,
         };
     } catch (error) {
         if (isRateLimitedError(error)) {

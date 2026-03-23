@@ -547,6 +547,7 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                 <>
                     <SessionsCard
                         nextSessionId={guardStatus.nextSessionId}
+                        sessions={guardStatus.sessions}
                         onOpenCreateSession={() => {
                             setIsCreateSessionModalOpen(true);
                         }}

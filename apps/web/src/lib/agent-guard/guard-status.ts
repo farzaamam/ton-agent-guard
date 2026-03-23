@@ -1,3 +1,15 @@
+export type GuardSessionSummary = {
+    id: string;
+    agent: string;
+    expiry: string;
+    maxTotal: string;
+    maxPerTx: string;
+    spentTotal: string;
+    nonceExpected: string;
+    revoked: boolean;
+    lockedAmount: string;
+};
+
 export type GuardStatusResponse = {
     address: string;
     isDeployed: boolean;
@@ -6,4 +18,5 @@ export type GuardStatusResponse = {
     reservedBalance: string | null;
     availableBalance: string | null;
     nextSessionId: string | null;
+    sessions: GuardSessionSummary[];
 };
