@@ -528,7 +528,7 @@ export function CreateSessionCard({
                         </p>
                         <p className="mt-2 text-sm text-white">
                             {formatTonValue(availableBalance, {
-                                placeholder: "Loading...",
+                                placeholder: "Unavailable",
                                 maximumFractionDigits: 4,
                             })}
                         </p>
@@ -545,7 +545,7 @@ export function CreateSessionCard({
             </div>
 
             <p className="mt-3 text-xs leading-5 text-white/45">
-                Next session id: {nextSessionId ?? "Loading..."}
+                Next session id: {nextSessionId ?? "Unavailable"}
             </p>
             <p className="mt-4 text-sm leading-6 text-white/50">{eligibilityHint}</p>
 

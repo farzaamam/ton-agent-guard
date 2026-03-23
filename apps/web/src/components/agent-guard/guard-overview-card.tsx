@@ -5,7 +5,9 @@ type GuardOverviewCardProps = {
     isDeployed: boolean;
     state: string;
     onchainBalance: string;
+    canOpenWithdrawGuard: boolean;
     onOpenFundGuard: () => void;
+    onOpenWithdrawGuard: () => void;
     onRefresh: () => void;
     isRefreshing: boolean;
 };
@@ -35,7 +37,9 @@ export function GuardOverviewCard({
     isDeployed,
     state,
     onchainBalance,
+    canOpenWithdrawGuard,
     onOpenFundGuard,
+    onOpenWithdrawGuard,
     onRefresh,
     isRefreshing,
 }: GuardOverviewCardProps) {
@@ -55,14 +59,25 @@ export function GuardOverviewCard({
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={onOpenFundGuard}
-                    disabled={!isDeployed}
-                    className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    Fund Guard
-                </button>
+                <div className="flex flex-wrap justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onOpenWithdrawGuard}
+                        disabled={!canOpenWithdrawGuard}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-white/85 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Withdraw Guard
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={onOpenFundGuard}
+                        disabled={!isDeployed}
+                        className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        Fund Guard
+                    </button>
+                </div>
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">

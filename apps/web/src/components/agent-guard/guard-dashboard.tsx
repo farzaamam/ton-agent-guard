@@ -13,6 +13,7 @@ import { CreateSessionModal } from "@/components/agent-guard/create-session-moda
 import { FundGuardModal } from "@/components/agent-guard/fund-guard-modal";
 import { GuardOverviewCard } from "@/components/agent-guard/guard-overview-card";
 import { SessionsCard } from "@/components/agent-guard/sessions-card";
+import { WithdrawGuardModal } from "@/components/agent-guard/withdraw-guard-modal";
 import {
     GuardStatusResponse,
     areSameAddress,
@@ -78,6 +79,8 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
     const [fundState, setFundState] = useState<FundState>("idle");
     const [fundMessage, setFundMessage] = useState("");
     const [isFundGuardModalOpen, setIsFundGuardModalOpen] = useState(false);
+    const [isWithdrawGuardModalOpen, setIsWithdrawGuardModalOpen] =
+        useState(false);
     const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] =
         useState(false);
 
@@ -310,6 +313,16 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
             },
         });
 
+    const handleWithdrawGuardRefresh = async (
+        previousBalance: string,
+        previousAvailableBalance: string | null
+    ) =>
+        refreshGuardStatus({
+            shouldStop: (nextStatus) =>
+                nextStatus.balance !== previousBalance ||
+                nextStatus.availableBalance !== previousAvailableBalance,
+        });
+
     const isOwnerConnected =
         !!walletAddress &&
         !!connectedGuardAddress &&
@@ -331,6 +344,8 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
               : undefined;
 
     const isWalletConnected = Boolean(walletAddress);
+    const canOpenWithdrawGuard =
+        isWalletConnected && isOwnerConnected && guardStatus?.isDeployed === true;
     const canSubmitFunding =
         isWalletConnected &&
         Boolean(fundAmount.trim()) &&
@@ -436,6 +451,21 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                 onSubmittedRefresh={handleCreateSessionRefresh}
             />
 
+            <WithdrawGuardModal
+                isOpen={isWithdrawGuardModalOpen}
+                onClose={() => {
+                    setIsWithdrawGuardModalOpen(false);
+                }}
+                guardAddress={guardStatus.address}
+                ownerAddress={isOwnerConnected ? walletAddress : ""}
+                balance={guardStatus.balance}
+                availableBalance={guardStatus.availableBalance}
+                isWalletConnected={isWalletConnected}
+                isOwnerConnected={isOwnerConnected}
+                isGuardActive={guardStatus.isDeployed}
+                onSubmittedRefresh={handleWithdrawGuardRefresh}
+            />
+
             <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
@@ -446,9 +476,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                             AgentGuard
                         </h2>
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
-                            Operate a deployed guard, review its onchain state, fund it
-                            from the connected wallet, and create owner-controlled
-                            sessions.
+                            Operate a deployed guard, review its onchain state, fund
+                            it, withdraw unlocked balance back to the owner, and
+                            create owner-controlled sessions.
                         </p>
                     </div>
 
@@ -466,8 +496,12 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                     placeholder: "0 TON",
                     maximumFractionDigits: 4,
                 })}
+                canOpenWithdrawGuard={canOpenWithdrawGuard}
                 onOpenFundGuard={() => {
                     setIsFundGuardModalOpen(true);
+                }}
+                onOpenWithdrawGuard={() => {
+                    setIsWithdrawGuardModalOpen(true);
                 }}
                 onRefresh={() => {
                     void refreshGuardStatus();

@@ -16,6 +16,22 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment
+
+Create `apps/web/.env.local` from `apps/web/.env.example` and set:
+
+```bash
+TONCENTER_API_KEY=your_toncenter_api_key
+```
+
+Optional:
+
+```bash
+TONCENTER_RPC_ENDPOINT=https://testnet.toncenter.com/api/v2/jsonRPC
+```
+
+The dashboard's server-side TON client uses `TONCENTER_API_KEY` automatically for guard status reads.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
