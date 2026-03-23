@@ -31,7 +31,8 @@ AgentGuard currently implements session-based bounded execution with:
 - expiry
 - revocation
 - nonce protection
-- target allowlists
+- fixed target routing
+- single-opcode body gating
 
 ---
 
@@ -67,7 +68,8 @@ Each session currently supports:
 - **max per transaction** — cap on a single forwarded execution
 - **max total spend** — cap across the whole session
 - **nonce-based replay protection** — ordered execution and replay prevention
-- **target allowlist** — agent can execute only against approved contracts
+- **fixed target** — agent can execute only against the configured contract
+- **allowed opcode** — the forwarded body must begin with the configured 32-bit opcode
 - **revocation** — owner can disable a session at any time
 
 All execution flows through the guard contract.
@@ -85,7 +87,7 @@ High-level flow:
 3. Owner creates a session for a specific agent
 4. Agent sends an `Execute` request
 5. AgentGuard checks session constraints
-6. If valid, AgentGuard forwards the internal message to the approved target
+6. If valid, AgentGuard forwards the internal message to the configured target
 
 Validation includes:
 
@@ -96,7 +98,8 @@ Validation includes:
 - nonce matches expected value
 - per-transaction spend is within limit
 - total session spend remains within limit
-- target contract is allowlisted
+- target contract matches the session
+- message body opcode matches the session
 
 If any check fails, execution is rejected on-chain.
 
@@ -136,7 +139,7 @@ Responsibilities:
 - tracks session spending
 - tracks expected nonce
 - enforces execution constraints
-- manages target allowlists
+- pins each session to one target contract and one allowed opcode
 - forwards validated internal messages
 - supports owner withdrawal of guard-held funds
 
@@ -156,6 +159,7 @@ AgentGuard currently provides:
 - replay protection via nonce
 - bounded spending
 - bounded target access
+- bounded message action via opcode
 - owner-controlled revocation
 - on-chain enforcement of session constraints
 
@@ -174,7 +178,7 @@ A few implementation details matter:
 - Session budgets are **policy limits**, not reserved balances
 - Multiple sessions may exist at once, but funds are not isolated per session
 - Spend accounting is based on accepted guarded execution attempts
-- Current permissions are **target-level**, not yet method-level or payload-level
+- Current permissions are **target + opcode-level**, not full payload semantics
 
 That means AgentGuard today is best understood as a **session-scoped execution firewall**, not yet a full semantic policy engine.
 
@@ -187,12 +191,12 @@ The repository includes unit and integration tests covering:
 - deployment
 - session creation
 - successful guarded execution
+- opcode mismatch rejection
 - replay rejection
 - unauthorized sender rejection
-- target allowlist enforcement
+- target and opcode enforcement
 - expiry and revocation
 - spending cap enforcement
-- allowlist mutation
 - owner-only withdrawal
 
 Run tests with:

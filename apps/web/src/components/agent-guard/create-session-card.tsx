@@ -36,6 +36,7 @@ type CreateSessionFormValues = {
     maxTotal: string;
     maxPerTx: string;
     target: string;
+    allowedOp: string;
 };
 
 type CreateSessionField = keyof CreateSessionFormValues;
@@ -48,6 +49,7 @@ type PreparedCreateSessionRequest = {
     maxTotal: string;
     maxPerTx: string;
     target: string;
+    allowedOp: string;
 };
 
 const CREATE_SESSION_TRANSACTION_VALUE = toNano("0.1").toString();
@@ -108,6 +110,7 @@ function getInitialFormValues(): CreateSessionFormValues {
         maxTotal: "",
         maxPerTx: "",
         target: "",
+        allowedOp: "",
     };
 }
 
@@ -124,11 +127,13 @@ function validateCreateSessionForm(
     let expirySeconds: bigint | null = null;
     let maxTotal: bigint | null = null;
     let maxPerTx: bigint | null = null;
+    let allowedOp: bigint | null = null;
 
     const agentValue = values.agent.trim();
     const targetValue = values.target.trim();
     const maxTotalValue = values.maxTotal.trim();
     const maxPerTxValue = values.maxPerTx.trim();
+    const allowedOpValue = values.allowedOp.trim();
     const expiryValue = values.expiry.trim();
 
     try {
@@ -183,6 +188,20 @@ function validateCreateSessionForm(
         errors.maxPerTx = "Max per tx cannot exceed max total.";
     }
 
+    if (!allowedOpValue) {
+        errors.allowedOp = "Enter a 32-bit message opcode.";
+    } else {
+        try {
+            allowedOp = BigInt(allowedOpValue);
+
+            if (allowedOp < 0n || allowedOp > 0xffffffffn) {
+                errors.allowedOp = "Opcode must fit in 32 bits.";
+            }
+        } catch {
+            errors.allowedOp = "Enter a valid opcode like 3917883370 or 0xE98627EA.";
+        }
+    }
+
     if (agent && target && agent.equals(target)) {
         errors.target = "Target must be different from the agent address.";
     }
@@ -210,6 +229,7 @@ function validateCreateSessionForm(
             maxTotal: maxTotal!.toString(),
             maxPerTx: maxPerTx!.toString(),
             target: target!.toString(),
+            allowedOp: allowedOp!.toString(),
         },
     };
 }
@@ -221,6 +241,7 @@ function prepareCreateSessionPayload(input: PreparedCreateSessionRequest) {
                 $$type: "CreateSession",
                 agent: Address.parse(input.agent),
                 target: Address.parse(input.target),
+                allowedOp: BigInt(input.allowedOp),
                 expiry: BigInt(input.expiry),
                 maxTotal: BigInt(input.maxTotal),
                 maxPerTx: BigInt(input.maxPerTx),
@@ -327,10 +348,10 @@ export function CreateSessionCard({
     const eligibilityHint = !isWalletConnected
         ? "Connect the owner wallet to create sessions."
         : !isOwnerConnected
-          ? "Only the wallet that resolves to this AgentGuard can create sessions."
+            ? "Only the wallet that resolves to this AgentGuard can create sessions."
           : !isGuardActive
             ? "This AgentGuard must be active before sessions can be created."
-            : "Each session is pinned to one target contract. Leave a small balance buffer when setting max total.";
+            : "Each session is pinned to one target contract and one allowed message opcode. Leave a small balance buffer when setting max total.";
 
     const updateField = (field: CreateSessionField, value: string) => {
         if (
@@ -484,8 +505,8 @@ export function CreateSessionCard({
                 Define the next operator session
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
-                Assign an agent, set expiry and spend caps, and pin the session to
-                one execution target.
+                Assign an agent, set expiry and spend caps, then pin the session to
+                one execution target and one allowed body opcode.
             </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -527,6 +548,16 @@ export function CreateSessionCard({
                     inputMode="decimal"
                     disabled={isBusy}
                     error={fieldErrors.maxPerTx}
+                />
+                <SessionField
+                    id="session-allowed-op"
+                    label="Allowed opcode"
+                    placeholder="3917883370 or 0xE98627EA"
+                    value={formValues.allowedOp}
+                    onChange={(value) => updateField("allowedOp", value)}
+                    disabled={isBusy}
+                    hint="The first 32 bits of every forwarded body must match this opcode."
+                    error={fieldErrors.allowedOp}
                 />
             </div>
 

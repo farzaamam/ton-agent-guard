@@ -15,7 +15,7 @@ Core execution pattern:
 ## Roles
 
 ### Owner
-The owner deploys and funds `AgentGuard`, creates sessions, manages target allowlists, revokes sessions, and can withdraw guard-held funds.
+The owner deploys and funds `AgentGuard`, creates sessions, revokes sessions, and can withdraw guard-held funds.
 
 ### Agent
 The agent is the address authorized to execute through a specific session.
@@ -28,9 +28,9 @@ The core guard contract.
 It stores session state, validates execution requests, and forwards internal messages only when all session constraints pass.
 
 ### Target Contract
-A contract allowlisted for a given session.
+A contract fixed for a given session.
 
-If the target is not allowlisted, execution is rejected.
+If the target or body opcode does not match the session, execution is rejected.
 
 ---
 
@@ -42,10 +42,11 @@ Each session contains:
 - expiry timestamp
 - max total spend
 - max per-transaction spend
+- allowed body opcode
 - spent total so far
 - expected nonce
 - revoked status
-- allowlisted target set
+- fixed target contract
 
 A session defines the execution envelope for an autonomous agent.
 
@@ -65,7 +66,8 @@ A session defines the execution envelope for an autonomous agent.
    - nonce matches expected value
    - value is within per-tx limit
    - cumulative spend remains within session max
-   - target is allowlisted
+   - target matches the session
+   - body opcode matches the session
 6. If valid, AgentGuard forwards the internal message to the target contract
 
 If validation fails, execution is rejected on-chain.
@@ -80,7 +82,8 @@ AgentGuard currently enforces:
 - bounded total session spending
 - bounded per-transaction spending
 - replay protection via nonce
-- target-level allowlist constraints
+- fixed target constraints
+- allowed opcode constraints
 - owner-controlled session revocation
 
 All enforcement happens on-chain inside the guard contract.
@@ -99,7 +102,7 @@ Instead of handing wallet authority directly to an agent, execution is mediated 
 
 ## Current Limitations
 
-AgentGuard currently provides target-level execution constraints, not method-level or payload-level restrictions.
+AgentGuard currently provides target + opcode execution constraints, not full payload-level restrictions.
 
 Other important limitations:
 

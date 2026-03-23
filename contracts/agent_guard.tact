@@ -1,6 +1,7 @@
 struct Session {
     agent: Address;
     target: Address;
+    allowedOp: Int;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
@@ -12,6 +13,7 @@ struct Session {
 struct SessionView {
     agent: Address;
     target: Address;
+    allowedOp: Int;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
@@ -32,9 +34,10 @@ message RevokeSession {
     sessionId: Int;
 }
 
-message(0x1f7db621) CreateSession {
+message(0x2169f4b3) CreateSession {
     agent: Address;
     target: Address;
+    allowedOp: Int;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
@@ -64,6 +67,12 @@ contract AgentGuard {
         require(agent != myAddress(), "AGENT_CANNOT_BE_SELF");
         require(target != myAddress(), "TARGET_CANNOT_BE_SELF");
         require(agent != target, "AGENT_CANNOT_BE_TARGET");
+    }
+
+    fun bodyOpcode(body: Cell): Int {
+        let bodySlice = body.beginParse();
+        require(bodySlice.bits() >= 32, "BAD_OP");
+        return bodySlice.preloadUint(32);
     }
 
     fun lockedAmountForSession(session: Session): Int {
@@ -107,6 +116,7 @@ contract AgentGuard {
         let session = Session{
             agent: msg.agent,
             target: msg.target,
+            allowedOp: msg.allowedOp,
             expiry: msg.expiry,
             maxTotal: msg.maxTotal,
             maxPerTx: msg.maxPerTx,
@@ -165,6 +175,7 @@ contract AgentGuard {
         require(msg.value > 0, "BAD_VALUE");
         require(msg.value <= s.maxPerTx, "OVER_MAX_PERTX");
         require(s.spentTotal + msg.value <= s.maxTotal, "OVER_MAX_TOTAL");
+        require(self.bodyOpcode(msg.body) == s.allowedOp, "BAD_OP");
 
         s.nonceExpected += 1;
         s.spentTotal += msg.value;
@@ -208,6 +219,7 @@ contract AgentGuard {
         return SessionView{
             agent: s.agent,
             target: s.target,
+            allowedOp: s.allowedOp,
             expiry: s.expiry,
             maxTotal: s.maxTotal,
             maxPerTx: s.maxPerTx,

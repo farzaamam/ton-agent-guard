@@ -22,8 +22,8 @@ Expired sessions cannot execute.
 ### Continued execution after owner cancellation
 Revoked sessions cannot execute.
 
-### Interaction with non-approved contracts
-Execution is limited to session allowlisted targets.
+### Interaction with non-approved contracts or actions
+Execution is limited to the session's configured target and allowed opcode.
 
 ### Unauthorized execution sender
 Only the agent address assigned to the session can execute through that session.
@@ -32,14 +32,14 @@ Only the agent address assigned to the session can execute through that session.
 
 ## What AgentGuard Does Not Protect Against
 
-### Malicious or vulnerable allowlisted targets
-If a target contract is allowlisted, AgentGuard does not validate the safety of that target’s internal logic.
+### Malicious or vulnerable target contracts
+If a target contract is configured for a session, AgentGuard does not validate the safety of that target’s internal logic.
 
-### Unsafe payload semantics
-Current enforcement is target-level, not method-level or payload-level. An allowlisted target may still receive arbitrary allowed message bodies.
+### Unsafe payload semantics beyond opcode
+Current enforcement is target + opcode-level, not full payload-level semantics. A target may still receive bodies whose leading 32-bit opcode is correct but whose remaining fields are still unsafe for the owner's intended policy.
 
 ### Owner mistakes
-If the owner creates an overly permissive session or allowlists the wrong target, AgentGuard will still enforce that incorrect policy exactly as configured.
+If the owner configures the wrong target or opcode, AgentGuard will still enforce that incorrect policy exactly as configured.
 
 ### Liquidity isolation across sessions
 Session budgets are not backed by reserved balances. Multiple sessions may depend on the same contract-held funds.
@@ -55,7 +55,7 @@ The current model assumes:
 
 - the owner is trusted to create sensible session policies
 - the owner is trusted to manage revocation and withdrawals
-- allowlisted target contracts are trusted to behave as intended
+- configured target contracts are trusted to behave as intended
 - the agent may be fallible or partially untrusted, which is why bounded session constraints exist
 
 ---
@@ -68,15 +68,14 @@ The current model assumes:
 ### Spend is consumed on accepted execution attempts
 Once an execution request passes guard checks and is forwarded, session spend and nonce advance. This is true even if downstream behavior is not economically useful.
 
-### Permissions are target-level
-Current policy checks whether the destination contract is allowlisted. It does not yet restrict specific message schemas or method-level behavior.
+### Permissions are target + opcode-level
+Current policy checks whether the destination contract and the first 32-bit body opcode match the session. It does not yet restrict the rest of the payload or enforce richer method semantics.
 
 ---
 
 ## Known v0 Limitations
 
-- no method-level restrictions
-- no payload-level restrictions
+- no payload templates or argument constraints beyond opcode
 - no approval escalation path
 - no per-session reserved liquidity
 - no richer risk scoring or policy composition

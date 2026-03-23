@@ -67,6 +67,14 @@ function formatShortAddress(address: string) {
         : address;
 }
 
+function formatOpcode(opcode: string) {
+    try {
+        return `0x${BigInt(opcode).toString(16).toUpperCase().padStart(8, "0")}`;
+    } catch {
+        return "Unavailable";
+    }
+}
+
 function formatExpiry(expiry: string) {
     try {
         const date = new Date(Number(BigInt(expiry)) * 1000);
@@ -193,6 +201,8 @@ function SessionRow({
                         })}
                     </p>
                     <p className="mt-2 text-xs leading-5 text-white/45">
+                        Op {formatOpcode(session.allowedOp)}
+                        {" · "}
                         Locked{" "}
                         {formatTonValue(session.lockedAmount, {
                             placeholder: "Unavailable",
@@ -392,7 +402,7 @@ export function SessionsCard({
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
                         Review each session row, its budget, expiry, current usage,
                         and lifecycle state. Each session is pinned to a single
-                        target contract.
+                        target contract and one allowed message opcode.
                     </p>
                 </div>
 

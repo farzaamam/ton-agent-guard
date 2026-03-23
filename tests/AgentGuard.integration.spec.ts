@@ -8,6 +8,7 @@ import {
 import "@ton/test-utils";
 
 const nowSec = (bc: Blockchain) => bc.now ?? Math.floor(Date.now() / 1000);
+const PING_OPCODE = BigInt(CounterReceiver.opcodes.Ping);
 
 describe("AgentGuard (integration)", () => {
     let blockchain: Blockchain;
@@ -86,10 +87,17 @@ describe("AgentGuard (integration)", () => {
             .store(storePing({ $$type: "Ping", note }))
             .endCell();
 
+    const wrongOpBody = () =>
+        beginCell()
+            .storeUint(0xdeadbeef, 32)
+            .storeUint(0, 1)
+            .endCell();
+
     const createDefaultSession = async (
         expiry?: bigint,
         target = counter.address,
-        sessionAgent = agent.address
+        sessionAgent = agent.address,
+        allowedOp = PING_OPCODE
     ) => {
         const sessionExpiry = expiry ?? BigInt(nowSec(blockchain) + 3600);
 
@@ -100,6 +108,7 @@ describe("AgentGuard (integration)", () => {
                 $$type: "CreateSession",
                 agent: sessionAgent,
                 target,
+                allowedOp,
                 expiry: sessionExpiry,
                 maxTotal: toNano("0.5"),
                 maxPerTx: toNano("0.2"),
@@ -143,6 +152,30 @@ describe("AgentGuard (integration)", () => {
         });
 
         expect(await counter.getGetCount()).toBe(1n);
+    });
+
+    it("fails when execute body opcode does not match session allowedOp", async () => {
+        await createDefaultSession();
+
+        const res = await guard.send(
+            agent.getSender(),
+            { value: toNano("0.2") },
+            {
+                $$type: "Execute",
+                sessionId: 1n,
+                nonce: 0n,
+                value: toNano("0.05"),
+                body: wrongOpBody(),
+            }
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: agent.address,
+            to: guard.address,
+            success: false,
+        });
+
+        expect(await counter.getGetCount()).toBe(0n);
     });
 
     it("fails on replay nonce (same nonce twice)", async () => {
@@ -195,6 +228,7 @@ describe("AgentGuard (integration)", () => {
                 $$type: "CreateSession",
                 agent: agent.address,
                 target: counter.address,
+                allowedOp: PING_OPCODE,
                 expiry,
                 maxTotal: toNano("0.5"),
                 maxPerTx: toNano("0.2"),
@@ -462,6 +496,7 @@ describe("AgentGuard (integration)", () => {
         const createdSession = await guard.getGetSession(1n);
         expect(createdSession.agent.toString()).toBe(agent.address.toString());
         expect(createdSession.target.toString()).toBe(counter.address.toString());
+        expect(createdSession.allowedOp).toBe(PING_OPCODE);
         expect(createdSession.expiry > BigInt(nowSec(blockchain))).toBe(true);
         expect(createdSession.maxTotal).toBe(toNano("0.5"));
         expect(createdSession.maxPerTx).toBe(toNano("0.2"));
@@ -492,6 +527,7 @@ describe("AgentGuard (integration)", () => {
 
         const updatedSession = await guard.getGetSession(1n);
         expect(updatedSession.target.toString()).toBe(counter.address.toString());
+        expect(updatedSession.allowedOp).toBe(PING_OPCODE);
         expect(updatedSession.spentTotal).toBe(toNano("0.05"));
         expect(updatedSession.nonceExpected).toBe(1n);
         expect(updatedSession.lockedAmount).toBe(toNano("0.45"));
