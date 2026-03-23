@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { storeCreateSession } from "../../../../../build/AgentGuard/AgentGuard_AgentGuard";
 import {
+    areSameAddress,
     formatTonValue,
     getDisplayErrorMessage,
 } from "@/components/agent-guard/guard-utils";
@@ -34,7 +35,7 @@ type CreateSessionFormValues = {
     expiry: string;
     maxTotal: string;
     maxPerTx: string;
-    allowedTarget: string;
+    target: string;
 };
 
 type CreateSessionField = keyof CreateSessionFormValues;
@@ -46,7 +47,7 @@ type PreparedCreateSessionRequest = {
     expiry: string;
     maxTotal: string;
     maxPerTx: string;
-    allowedTarget: string;
+    target: string;
 };
 
 const CREATE_SESSION_TRANSACTION_VALUE = toNano("0.1").toString();
@@ -106,25 +107,26 @@ function getInitialFormValues(): CreateSessionFormValues {
         expiry: getDefaultExpiryInput(),
         maxTotal: "",
         maxPerTx: "",
-        allowedTarget: "",
+        target: "",
     };
 }
 
 function validateCreateSessionForm(
-    values: CreateSessionFormValues
+    values: CreateSessionFormValues,
+    guardAddress: string
 ): {
     errors: CreateSessionFieldErrors;
     prepared: PreparedCreateSessionRequest | null;
 } {
     const errors: CreateSessionFieldErrors = {};
     let agent: Address | null = null;
-    let allowedTarget: Address | null = null;
+    let target: Address | null = null;
     let expirySeconds: bigint | null = null;
     let maxTotal: bigint | null = null;
     let maxPerTx: bigint | null = null;
 
     const agentValue = values.agent.trim();
-    const allowedTargetValue = values.allowedTarget.trim();
+    const targetValue = values.target.trim();
     const maxTotalValue = values.maxTotal.trim();
     const maxPerTxValue = values.maxPerTx.trim();
     const expiryValue = values.expiry.trim();
@@ -136,9 +138,9 @@ function validateCreateSessionForm(
     }
 
     try {
-        allowedTarget = Address.parse(allowedTargetValue);
+        target = Address.parse(targetValue);
     } catch {
-        errors.allowedTarget = "Enter a valid TON address.";
+        errors.target = "Enter a valid TON address.";
     }
 
     if (!expiryValue) {
@@ -181,6 +183,18 @@ function validateCreateSessionForm(
         errors.maxPerTx = "Max per tx cannot exceed max total.";
     }
 
+    if (agent && target && agent.equals(target)) {
+        errors.target = "Target must be different from the agent address.";
+    }
+
+    if (agent && areSameAddress(agent.toString(), guardAddress)) {
+        errors.agent = "Agent cannot be the guard contract address.";
+    }
+
+    if (target && areSameAddress(target.toString(), guardAddress)) {
+        errors.target = "Target cannot be the guard contract address.";
+    }
+
     if (Object.keys(errors).length > 0) {
         return {
             errors,
@@ -195,7 +209,7 @@ function validateCreateSessionForm(
             expiry: expirySeconds!.toString(),
             maxTotal: maxTotal!.toString(),
             maxPerTx: maxPerTx!.toString(),
-            allowedTarget: allowedTarget!.toString(),
+            target: target!.toString(),
         },
     };
 }
@@ -206,10 +220,10 @@ function prepareCreateSessionPayload(input: PreparedCreateSessionRequest) {
             storeCreateSession({
                 $$type: "CreateSession",
                 agent: Address.parse(input.agent),
+                target: Address.parse(input.target),
                 expiry: BigInt(input.expiry),
                 maxTotal: BigInt(input.maxTotal),
                 maxPerTx: BigInt(input.maxPerTx),
-                allowedTarget: Address.parse(input.allowedTarget),
             })
         )
         .endCell()
@@ -316,7 +330,7 @@ export function CreateSessionCard({
           ? "Only the wallet that resolves to this AgentGuard can create sessions."
           : !isGuardActive
             ? "This AgentGuard must be active before sessions can be created."
-            : "Each session starts with one initial allowed target. Additional targets can be added only after the session exists. Leave a small balance buffer when setting max total.";
+            : "Each session is pinned to one target contract. Leave a small balance buffer when setting max total.";
 
     const updateField = (field: CreateSessionField, value: string) => {
         if (
@@ -361,7 +375,7 @@ export function CreateSessionCard({
         setSubmissionState("validating");
         setStatusText("Checking session parameters...");
 
-        const validation = validateCreateSessionForm(formValues);
+        const validation = validateCreateSessionForm(formValues, guardAddress);
 
         if (!validation.prepared) {
             setFieldErrors(validation.errors);
@@ -470,8 +484,8 @@ export function CreateSessionCard({
                 Define the next operator session
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
-                Assign an agent, set expiry and spend caps, and choose the one
-                initial allowed target that starts the session.
+                Assign an agent, set expiry and spend caps, and pin the session to
+                one execution target.
             </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -518,14 +532,14 @@ export function CreateSessionCard({
 
             <div className="mt-4">
                 <SessionField
-                    id="session-allowed-target"
-                    label="Initial allowed target"
+                    id="session-target"
+                    label="Target contract"
                     placeholder="EQ..."
-                    value={formValues.allowedTarget}
-                    onChange={(value) => updateField("allowedTarget", value)}
+                    value={formValues.target}
+                    onChange={(value) => updateField("target", value)}
                     disabled={isBusy}
-                    hint="This is the only allowed target at creation time."
-                    error={fieldErrors.allowedTarget}
+                    hint="Every execution in this session will be forwarded to this contract."
+                    error={fieldErrors.target}
                 />
             </div>
 

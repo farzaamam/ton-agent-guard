@@ -1,6 +1,7 @@
 export type GuardSessionSummary = {
     id: string;
     agent: string;
+    target: string;
     expiry: string;
     maxTotal: string;
     maxPerTx: string;

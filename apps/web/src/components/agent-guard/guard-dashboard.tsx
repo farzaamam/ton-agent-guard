@@ -323,6 +323,20 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                 nextStatus.availableBalance !== previousAvailableBalance,
         });
 
+    const handleRevokeSessionRefresh = async (sessionId: string) => {
+        const refreshedStatus = await refreshGuardStatus({
+            shouldStop: (nextStatus) =>
+                nextStatus.sessions.some(
+                    (session) => session.id === sessionId && session.revoked
+                ),
+        });
+        const session = refreshedStatus?.sessions.find(
+            (candidate) => candidate.id === sessionId
+        );
+
+        return session ? { revoked: session.revoked } : null;
+    };
+
     const isOwnerConnected =
         !!walletAddress &&
         !!connectedGuardAddress &&
@@ -546,11 +560,16 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
             ) : (
                 <>
                     <SessionsCard
+                        guardAddress={guardStatus.address}
                         nextSessionId={guardStatus.nextSessionId}
                         sessions={guardStatus.sessions}
+                        isWalletConnected={isWalletConnected}
+                        isOwnerConnected={isOwnerConnected}
+                        isGuardActive={guardStatus.isDeployed}
                         onOpenCreateSession={() => {
                             setIsCreateSessionModalOpen(true);
                         }}
+                        onSubmittedRevoke={handleRevokeSessionRefresh}
                     />
                 </>
             )}

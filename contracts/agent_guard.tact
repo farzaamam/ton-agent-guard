@@ -1,16 +1,17 @@
 struct Session {
     agent: Address;
+    target: Address;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
     spentTotal: Int;
     nonceExpected: Int;
     revoked: Bool;
-    allowedTargets: map<Address, Bool>;
 }
 
 struct SessionView {
     agent: Address;
+    target: Address;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
@@ -19,51 +20,50 @@ struct SessionView {
     revoked: Bool;
     lockedAmount: Int;
 }
+
 message Execute {
     sessionId: Int;
     nonce: Int;
-    target: Address;
     value: Int;
     body: Cell;
 }
+
 message RevokeSession {
     sessionId: Int;
 }
-message(0x5de19e8) CreateSession {
+
+message(0x1f7db621) CreateSession {
     agent: Address;
+    target: Address;
     expiry: Int;
     maxTotal: Int;
     maxPerTx: Int;
-    allowedTarget: Address;
 }
+
 message Withdraw {
     amount: Int;
     to: Address;
 }
 
-message AddAllowedTarget {
-    sessionId: Int;
-    target: Address;
-}
-
-message RemoveAllowedTarget {
-    sessionId: Int;
-    target: Address;
-}
-
 contract AgentGuard {
-
     owner: Address;
-    nextSessionId: Int;
+    nextSessionId: Int = 1;
     sessions: map<Int, Session>;
 
     init(owner: Address) {
         self.owner = owner;
-        self.nextSessionId = 1;
     }
+
+    receive() {}
 
     fun onlyOwner() {
         require(sender() == self.owner, "NOT_OWNER");
+    }
+
+    fun validateSessionEndpoints(agent: Address, target: Address) {
+        require(agent != myAddress(), "AGENT_CANNOT_BE_SELF");
+        require(target != myAddress(), "TARGET_CANNOT_BE_SELF");
+        require(agent != target, "AGENT_CANNOT_BE_TARGET");
     }
 
     fun lockedAmountForSession(session: Session): Int {
@@ -75,14 +75,15 @@ contract AgentGuard {
             return 0;
         }
 
+        require(session.spentTotal <= session.maxTotal, "CORRUPT_SESSION");
         return session.maxTotal - session.spentTotal;
     }
 
     fun totalLockedFunds(): Int {
         let total = 0;
 
-        foreach (sessionId, session in self.sessions) {
-            total = total + self.lockedAmountForSession(session);
+        foreach (_, session in self.sessions) {
+            total += self.lockedAmountForSession(session);
         }
 
         return total;
@@ -92,10 +93,10 @@ contract AgentGuard {
         return myBalance() - context().value - self.totalLockedFunds();
     }
 
-    receive() {}
-
     receive(msg: CreateSession) {
         self.onlyOwner();
+
+        self.validateSessionEndpoints(msg.agent, msg.target);
 
         require(msg.maxTotal > 0, "BAD_MAX_TOTAL");
         require(msg.maxPerTx > 0, "BAD_MAX_PERTX");
@@ -103,45 +104,40 @@ contract AgentGuard {
         require(msg.expiry > now(), "BAD_EXPIRY");
         require(self.availableContractBalance() >= msg.maxTotal, "INSUFFICIENT_AVAILABLE");
 
-        let id = self.nextSessionId;
-        self.nextSessionId = id + 1;
-
-        let allow: map<Address, Bool> = emptyMap();
-        allow.set(msg.allowedTarget, true);
-
-        let session: Session = Session{
+        let session = Session{
             agent: msg.agent,
+            target: msg.target,
             expiry: msg.expiry,
             maxTotal: msg.maxTotal,
             maxPerTx: msg.maxPerTx,
             spentTotal: 0,
             nonceExpected: 0,
-            revoked: false,
-            allowedTargets: allow,
+            revoked: false
         };
 
-        self.sessions.set(id, session);
-    }  
+        let sessionId = self.nextSessionId;
+        self.sessions.set(sessionId, session);
+        self.nextSessionId = sessionId + 1;
+    }
 
     receive(msg: RevokeSession) {
         self.onlyOwner();
 
-        // Try to load session
-        let s = self.sessions.get(msg.sessionId);
+        let sOpt = self.sessions.get(msg.sessionId);
+        require(sOpt != null, "NO_SESSION");
 
-        // If get() returns nullable, this check is needed:
-        require(s != null, "NO_SESSION");
+        let s = sOpt!!;
+        require(!s.revoked, "ALREADY_REVOKED");
 
-        let ss = s!!; // unwrap nullable Session?
-
-        require(!ss.revoked, "ALREADY_REVOKED");
-
-        ss.revoked = true;
-        self.sessions.set(msg.sessionId, ss);
+        s.revoked = true;
+        self.sessions.set(msg.sessionId, s);
     }
 
     receive(msg: Withdraw) {
         self.onlyOwner();
+
+        require(msg.to != myAddress(), "BAD_WITHDRAW_TO");
+
         require(msg.amount > 0, "BAD_AMOUNT");
         require(self.availableContractBalance() >= msg.amount, "INSUFFICIENT_AVAILABLE");
 
@@ -150,69 +146,41 @@ contract AgentGuard {
             nativeReserve(lockedFunds, ReserveExact);
         }
 
-        send(SendParameters{
-            to: msg.to,
-            value: msg.amount,
-            bounce: false
-        });
-    }    
+        message(MessageParameters{to: msg.to, value: msg.amount, bounce: false});
+    }
 
     receive(msg: Execute) {
-        let s = self.sessions.get(msg.sessionId);
-        require(s != null, "NO_SESSION");
-        let ss = s!!;
+        // Quota is consumed when execution is accepted and dispatched.
+        // Downstream bounce/failure does not roll back spentTotal or nonceExpected.
+        let sOpt = self.sessions.get(msg.sessionId);
+        require(sOpt != null, "NO_SESSION");
 
-        require(sender() == ss.agent, "NOT_AGENT");
+        let s = sOpt!!;
 
-        require(ss.allowedTargets.exists(msg.target), "TARGET_NOT_ALLOWED");
-        require(!ss.revoked, "REVOKED");
-        require(now() < ss.expiry, "EXPIRED");
+        require(sender() == s.agent, "NOT_AGENT");
+        require(!s.revoked, "REVOKED");
+        require(now() < s.expiry, "EXPIRED");
 
-        require(msg.nonce == ss.nonceExpected, "BAD_NONCE");
+        require(msg.nonce == s.nonceExpected, "BAD_NONCE");
         require(msg.value > 0, "BAD_VALUE");
-        require(msg.value <= ss.maxPerTx, "OVER_MAX_PERTX");
-        require(ss.spentTotal + msg.value <= ss.maxTotal, "OVER_MAX_TOTAL");
+        require(msg.value <= s.maxPerTx, "OVER_MAX_PERTX");
+        require(s.spentTotal + msg.value <= s.maxTotal, "OVER_MAX_TOTAL");
 
-        ss.nonceExpected = ss.nonceExpected + 1;
-        ss.spentTotal = ss.spentTotal + msg.value;
-        self.sessions.set(msg.sessionId, ss);
+        s.nonceExpected += 1;
+        s.spentTotal += msg.value;
+        self.sessions.set(msg.sessionId, s);
 
         let lockedFunds = self.totalLockedFunds();
         if (lockedFunds > 0) {
             nativeReserve(lockedFunds, ReserveExact);
         }
 
-        send(SendParameters{
-            to: msg.target,
+        message(MessageParameters{
+            to: s.target,
             value: msg.value,
             body: msg.body,
             bounce: true
         });
-    }
-
-    receive(msg: AddAllowedTarget) {
-        self.onlyOwner();
-
-        let sOpt = self.sessions.get(msg.sessionId);
-        require(sOpt != null, "NO_SESSION");
-        let s = sOpt!!;
-
-        require(!s.revoked, "REVOKED");
-        require(s.expiry > now(), "EXPIRED");
-
-        s.allowedTargets.set(msg.target, true);
-        self.sessions.set(msg.sessionId, s);
-    }
-
-    receive(msg: RemoveAllowedTarget) {
-        self.onlyOwner();
-
-        let sOpt = self.sessions.get(msg.sessionId);
-        require(sOpt != null, "NO_SESSION");
-        let s = sOpt!!;
-
-        s.allowedTargets.del(msg.target);
-        self.sessions.set(msg.sessionId, s);
     }
 
     get fun getOwner(): Address {
@@ -234,25 +202,19 @@ contract AgentGuard {
     get fun getSession(sessionId: Int): SessionView {
         let sOpt = self.sessions.get(sessionId);
         require(sOpt != null, "NO_SESSION");
+
         let s = sOpt!!;
 
         return SessionView{
             agent: s.agent,
+            target: s.target,
             expiry: s.expiry,
             maxTotal: s.maxTotal,
             maxPerTx: s.maxPerTx,
             spentTotal: s.spentTotal,
             nonceExpected: s.nonceExpected,
             revoked: s.revoked,
-            lockedAmount: self.lockedAmountForSession(s),
+            lockedAmount: self.lockedAmountForSession(s)
         };
-    }
-
-    get fun isTargetAllowed(sessionId: Int, target: Address): Bool {
-        let sOpt = self.sessions.get(sessionId);
-        require(sOpt != null, "NO_SESSION");
-        let s = sOpt!!;
-
-        return s.allowedTargets.exists(target);
     }
 }

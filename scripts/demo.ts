@@ -14,8 +14,8 @@ export async function run(provider: NetworkProvider) {
 
     const ownerAddress = owner.address;
 
-    // For now, demo uses the same sender as both owner and agent.
-    // Integration tests already prove the separated owner/agent model.
+    // Demo keeps owner and agent the same sender for convenience.
+    // The contract still supports separate owner and agent addresses.
     const agent = owner;
     const agentAddress = ownerAddress;
 
@@ -27,13 +27,13 @@ export async function run(provider: NetworkProvider) {
 
     console.log("AgentGuard deployed at:", guard.address.toString());
 
-    console.log("Deploying CounterReceiver #1...");
+    console.log("Deploying CounterReceiver...");
     const counter = provider.open(await CounterReceiver.fromInit(1n));
 
     await counter.send(owner, { value: toNano("0.2") }, null);
     await provider.waitForDeploy(counter.address);
 
-    console.log("CounterReceiver #1 deployed at:", counter.address.toString());
+    console.log("CounterReceiver deployed at:", counter.address.toString());
 
     console.log("Funding guard...");
     await owner.send({
@@ -42,17 +42,17 @@ export async function run(provider: NetworkProvider) {
     });
     await sleep(1500);
 
-    console.log("Creating session...");
+    console.log("Creating single-target session...");
     await guard.send(
         owner,
         { value: toNano("0.1") },
         {
             $$type: "CreateSession",
             agent: agentAddress,
+            target: counter.address,
             expiry: BigInt(Math.floor(Date.now() / 1000) + 3600),
             maxTotal: toNano("0.5"),
             maxPerTx: toNano("0.2"),
-            allowedTarget: counter.address,
         }
     );
 
@@ -63,7 +63,7 @@ export async function run(provider: NetworkProvider) {
         .store(storePing({ $$type: "Ping", note: 1n }))
         .endCell();
 
-    console.log("Executing via AgentGuard (Target 1)...");
+    console.log("Executing via AgentGuard...");
     await guard.send(
         agent,
         { value: toNano("0.2") },
@@ -71,54 +71,25 @@ export async function run(provider: NetworkProvider) {
             $$type: "Execute",
             sessionId: 1n,
             nonce: 0n,
-            target: counter.address,
             value: toNano("0.1"),
             body: pingBody,
         }
     );
 
-    console.log("Execute to target 1 successful.");
+    console.log("Execute successful.");
     await sleep(1500);
 
-    console.log("Deploying CounterReceiver #2...");
-    const counter2 = provider.open(await CounterReceiver.fromInit(2n));
+    const session = await guard.getGetSession(1n);
 
-    await counter2.send(owner, { value: toNano("0.2") }, null);
-    await provider.waitForDeploy(counter2.address);
+    console.log("Session target:", session.target.toString());
+    console.log("Session spentTotal:", session.spentTotal.toString());
+    console.log("Session nonceExpected:", session.nonceExpected.toString());
+    console.log("Session lockedAmount:", session.lockedAmount.toString());
 
-    console.log("CounterReceiver #2 deployed at:", counter2.address.toString());
+    console.log("Counter count:", (await counter.getGetCount()).toString());
+    console.log("Reserved total:", (await guard.getGetReservedTotal()).toString());
+    console.log("Available balance:", (await guard.getGetAvailableBalance()).toString());
 
-    console.log("Adding second allowed target...");
-    await guard.send(
-        owner,
-        { value: toNano("0.1") },
-        {
-            $$type: "AddAllowedTarget",
-            sessionId: 1n,
-            target: counter2.address,
-        }
-    );
-
-    await sleep(1500);
-
-    console.log("Executing via AgentGuard (Target 2)...");
-    await guard.send(
-        agent,
-        { value: toNano("0.2") },
-        {
-            $$type: "Execute",
-            sessionId: 1n,
-            nonce: 1n,
-            target: counter2.address,
-            value: toNano("0.1"),
-            body: pingBody,
-        }
-    );
-
-    console.log("Execute to target 2 successful.");
-    console.log("Counter1 count:", await counter.getGetCount());
-    console.log("Counter2 count:", await counter2.getGetCount());
-
-    console.log("✅ Multi-target session routing verified.");
+    console.log("✅ Single-target session execution verified.");
     console.log("✅ AgentGuard enforced session policy successfully.");
 }

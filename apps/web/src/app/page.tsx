@@ -17,7 +17,7 @@ export default function Home() {
 
         <p className="mt-6 max-w-2xl text-base leading-7 text-white/65 sm:text-lg">
           AgentGuard lets you create revocable, time-limited sessions for AI agents
-          with spend caps, expiry, nonce protection, and approved targets.
+          with spend caps, expiry, nonce protection, and fixed target routing.
         </p>
 
         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
@@ -48,10 +48,10 @@ export default function Home() {
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left">
             <p className="text-sm text-white/50">Policy</p>
-            <h2 className="mt-2 text-xl font-medium">Approved targets only</h2>
+            <h2 className="mt-2 text-xl font-medium">Fixed target routing</h2>
             <p className="mt-3 text-sm leading-6 text-white/60">
-              Restrict execution to explicitly allowlisted contracts for safer
-              automation.
+              Pin each session to one destination contract for tighter execution
+              control.
             </p>
           </div>
 

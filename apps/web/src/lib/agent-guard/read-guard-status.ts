@@ -68,6 +68,7 @@ async function readSessionSummaries(
             sessions.push({
                 id: sessionId.toString(),
                 agent: session.agent.toString(),
+                target: session.target.toString(),
                 expiry: session.expiry.toString(),
                 maxTotal: session.maxTotal.toString(),
                 maxPerTx: session.maxPerTx.toString(),

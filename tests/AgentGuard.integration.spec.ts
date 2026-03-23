@@ -27,13 +27,13 @@ describe("AgentGuard (integration)", () => {
         agent = await blockchain.treasury("agent");
         stranger = await blockchain.treasury("stranger");
 
-        // Deploy AgentGuard(owner)
         guard = blockchain.openContract(await AgentGuard.fromInit(owner.address));
         const deployGuard = await guard.send(
             owner.getSender(),
             { value: toNano("0.05") },
             null
         );
+
         expect(deployGuard.transactions).toHaveTransaction({
             from: owner.address,
             to: guard.address,
@@ -41,13 +41,13 @@ describe("AgentGuard (integration)", () => {
             success: true,
         });
 
-        // Deploy CounterReceiver #1
         counter = blockchain.openContract(await CounterReceiver.fromInit(1n));
         const deployCounter = await counter.send(
             owner.getSender(),
             { value: toNano("0.05") },
             null
         );
+
         expect(deployCounter.transactions).toHaveTransaction({
             from: owner.address,
             to: counter.address,
@@ -55,13 +55,13 @@ describe("AgentGuard (integration)", () => {
             success: true,
         });
 
-        // Deploy CounterReceiver #2
         counter2 = blockchain.openContract(await CounterReceiver.fromInit(2n));
         const deployCounter2 = await counter2.send(
             owner.getSender(),
             { value: toNano("0.05") },
             null
         );
+
         expect(deployCounter2.transactions).toHaveTransaction({
             from: owner.address,
             to: counter2.address,
@@ -69,11 +69,11 @@ describe("AgentGuard (integration)", () => {
             success: true,
         });
 
-        // Fund guard so it can forward value during Execute
         const fund = await owner.send({
             to: guard.address,
             value: toNano("1"),
         });
+
         expect(fund.transactions).toHaveTransaction({
             from: owner.address,
             to: guard.address,
@@ -86,7 +86,11 @@ describe("AgentGuard (integration)", () => {
             .store(storePing({ $$type: "Ping", note }))
             .endCell();
 
-    const createDefaultSession = async (expiry?: bigint) => {
+    const createDefaultSession = async (
+        expiry?: bigint,
+        target = counter.address,
+        sessionAgent = agent.address
+    ) => {
         const sessionExpiry = expiry ?? BigInt(nowSec(blockchain) + 3600);
 
         return guard.send(
@@ -94,11 +98,11 @@ describe("AgentGuard (integration)", () => {
             { value: toNano("0.1") },
             {
                 $$type: "CreateSession",
-                agent: agent.address,
+                agent: sessionAgent,
+                target,
                 expiry: sessionExpiry,
                 maxTotal: toNano("0.5"),
                 maxPerTx: toNano("0.2"),
-                allowedTarget: counter.address,
             }
         );
     };
@@ -121,7 +125,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.05"),
                 body: pingBody(1n),
             }
@@ -130,6 +133,12 @@ describe("AgentGuard (integration)", () => {
         expect(exec.transactions).toHaveTransaction({
             from: agent.address,
             to: guard.address,
+            success: true,
+        });
+
+        expect(exec.transactions).toHaveTransaction({
+            from: guard.address,
+            to: counter.address,
             success: true,
         });
 
@@ -146,7 +155,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.05"),
                 body: pingBody(1n),
             }
@@ -165,7 +173,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.05"),
                 body: pingBody(1n),
             }
@@ -178,31 +185,6 @@ describe("AgentGuard (integration)", () => {
         });
     });
 
-    it("fails when target is not allowed", async () => {
-        await createDefaultSession();
-
-        const bad = await guard.send(
-            agent.getSender(),
-            { value: toNano("0.2") },
-            {
-                $$type: "Execute",
-                sessionId: 1n,
-                nonce: 0n,
-                target: guard.address, // NOT allowed
-                value: toNano("0.05"),
-                body: pingBody(1n),
-            }
-        );
-
-        expect(bad.transactions).toHaveTransaction({
-            from: agent.address,
-            to: guard.address,
-            success: false,
-        });
-
-        expect(await counter.getGetCount()).toBe(0n);
-    });
-
     it("fails when non-owner tries to create session", async () => {
         const expiry = BigInt(nowSec(blockchain) + 3600);
 
@@ -212,10 +194,10 @@ describe("AgentGuard (integration)", () => {
             {
                 $$type: "CreateSession",
                 agent: agent.address,
+                target: counter.address,
                 expiry,
                 maxTotal: toNano("0.5"),
                 maxPerTx: toNano("0.2"),
-                allowedTarget: counter.address,
             }
         );
 
@@ -224,6 +206,45 @@ describe("AgentGuard (integration)", () => {
             to: guard.address,
             success: false,
         });
+    });
+
+    it("fails when agent matches guard address", async () => {
+        const res = await createDefaultSession(undefined, counter.address, guard.address);
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+        expect(await guard.getGetReservedTotal()).toBe(0n);
+    });
+
+    it("fails when target matches guard address", async () => {
+        const res = await createDefaultSession(undefined, guard.address);
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+        expect(await guard.getGetReservedTotal()).toBe(0n);
+    });
+
+    it("fails when agent matches target", async () => {
+        const res = await createDefaultSession(undefined, agent.address, agent.address);
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+        expect(await guard.getGetReservedTotal()).toBe(0n);
     });
 
     it("fails when sender is not the session agent", async () => {
@@ -236,7 +257,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.05"),
                 body: pingBody(1n),
             }
@@ -264,7 +284,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.05"),
                 body: pingBody(1n),
             }
@@ -304,7 +323,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.05"),
                 body: pingBody(1n),
             }
@@ -329,8 +347,7 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
-                value: toNano("0.25"), // maxPerTx is 0.2
+                value: toNano("0.25"),
                 body: pingBody(1n),
             }
         );
@@ -354,7 +371,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.2"),
                 body: pingBody(1n),
             }
@@ -373,9 +389,8 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 1n,
-                target: counter.address,
                 value: toNano("0.2"),
-                body: pingBody(1n),
+                body: pingBody(2n),
             }
         );
 
@@ -392,9 +407,8 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 2n,
-                target: counter.address,
-                value: toNano("0.2"), // total would become 0.6 > 0.5
-                body: pingBody(1n),
+                value: toNano("0.2"),
+                body: pingBody(3n),
             }
         );
 
@@ -404,27 +418,11 @@ describe("AgentGuard (integration)", () => {
             success: false,
         });
 
-        expect(await counter.getGetCount()).toBe(2n);
+        expect(await counter.getGetCount()).toBe(3n);
     });
 
-    it("owner can add allowed target and agent can execute to it", async () => {
-        await createDefaultSession();
-
-        const add = await guard.send(
-            owner.getSender(),
-            { value: toNano("0.05") },
-            {
-                $$type: "AddAllowedTarget",
-                sessionId: 1n,
-                target: counter2.address,
-            }
-        );
-
-        expect(add.transactions).toHaveTransaction({
-            from: owner.address,
-            to: guard.address,
-            success: true,
-        });
+    it("session target is fixed: executes only to the configured target", async () => {
+        await createDefaultSession(undefined, counter2.address);
 
         const exec = await guard.send(
             agent.getSender(),
@@ -433,9 +431,8 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter2.address,
                 value: toNano("0.05"),
-                body: pingBody(2n),
+                body: pingBody(9n),
             }
         );
 
@@ -445,7 +442,14 @@ describe("AgentGuard (integration)", () => {
             success: true,
         });
 
-        expect(await counter2.getGetCount()).toBe(2n);
+        expect(exec.transactions).toHaveTransaction({
+            from: guard.address,
+            to: counter2.address,
+            success: true,
+        });
+
+        expect(await counter.getGetCount()).toBe(0n);
+        expect(await counter2.getGetCount()).toBe(9n);
     });
 
     it("exposes session state and lock status via getters", async () => {
@@ -454,11 +458,10 @@ describe("AgentGuard (integration)", () => {
         expect((await guard.getGetOwner()).toString()).toBe(owner.address.toString());
         expect(await guard.getGetNextSessionId()).toBe(2n);
         expect(await guard.getGetReservedTotal()).toBe(toNano("0.5"));
-        expect(await guard.getIsTargetAllowed(1n, counter.address)).toBe(true);
-        expect(await guard.getIsTargetAllowed(1n, counter2.address)).toBe(false);
 
         const createdSession = await guard.getGetSession(1n);
         expect(createdSession.agent.toString()).toBe(agent.address.toString());
+        expect(createdSession.target.toString()).toBe(counter.address.toString());
         expect(createdSession.expiry > BigInt(nowSec(blockchain))).toBe(true);
         expect(createdSession.maxTotal).toBe(toNano("0.5"));
         expect(createdSession.maxPerTx).toBe(toNano("0.2"));
@@ -474,7 +477,6 @@ describe("AgentGuard (integration)", () => {
                 $$type: "Execute",
                 sessionId: 1n,
                 nonce: 0n,
-                target: counter.address,
                 value: toNano("0.05"),
                 body: pingBody(3n),
             }
@@ -489,90 +491,10 @@ describe("AgentGuard (integration)", () => {
         expect(await guard.getGetReservedTotal()).toBe(toNano("0.45"));
 
         const updatedSession = await guard.getGetSession(1n);
+        expect(updatedSession.target.toString()).toBe(counter.address.toString());
         expect(updatedSession.spentTotal).toBe(toNano("0.05"));
         expect(updatedSession.nonceExpected).toBe(1n);
         expect(updatedSession.lockedAmount).toBe(toNano("0.45"));
-    });
-
-    it("owner can remove allowed target and execution then fails", async () => {
-        await createDefaultSession();
-
-        const remove = await guard.send(
-            owner.getSender(),
-            { value: toNano("0.05") },
-            {
-                $$type: "RemoveAllowedTarget",
-                sessionId: 1n,
-                target: counter.address,
-            }
-        );
-
-        expect(remove.transactions).toHaveTransaction({
-            from: owner.address,
-            to: guard.address,
-            success: true,
-        });
-
-        const exec = await guard.send(
-            agent.getSender(),
-            { value: toNano("0.2") },
-            {
-                $$type: "Execute",
-                sessionId: 1n,
-                nonce: 0n,
-                target: counter.address,
-                value: toNano("0.05"),
-                body: pingBody(1n),
-            }
-        );
-
-        expect(exec.transactions).toHaveTransaction({
-            from: agent.address,
-            to: guard.address,
-            success: false,
-        });
-
-        expect(await counter.getGetCount()).toBe(0n);
-    });
-
-    it("fails when non-owner tries to add allowed target", async () => {
-        await createDefaultSession();
-
-        const res = await guard.send(
-            stranger.getSender(),
-            { value: toNano("0.05") },
-            {
-                $$type: "AddAllowedTarget",
-                sessionId: 1n,
-                target: counter2.address,
-            }
-        );
-
-        expect(res.transactions).toHaveTransaction({
-            from: stranger.address,
-            to: guard.address,
-            success: false,
-        });
-    });
-
-    it("fails when non-owner tries to remove allowed target", async () => {
-        await createDefaultSession();
-
-        const res = await guard.send(
-            stranger.getSender(),
-            { value: toNano("0.05") },
-            {
-                $$type: "RemoveAllowedTarget",
-                sessionId: 1n,
-                target: counter.address,
-            }
-        );
-
-        expect(res.transactions).toHaveTransaction({
-            from: stranger.address,
-            to: guard.address,
-            success: false,
-        });
     });
 
     it("blocks over-withdrawal while a session is active and releases funds after expiry", async () => {
@@ -660,6 +582,24 @@ describe("AgentGuard (integration)", () => {
 
         const after = await owner.getBalance();
         expect(after > before).toBe(true);
+    });
+
+    it("fails when owner withdraws to guard address", async () => {
+        const res = await guard.send(
+            owner.getSender(),
+            { value: toNano("0.05") },
+            {
+                $$type: "Withdraw",
+                amount: toNano("0.1"),
+                to: guard.address,
+            }
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+        });
     });
 
     it("fails when non-owner tries to withdraw", async () => {

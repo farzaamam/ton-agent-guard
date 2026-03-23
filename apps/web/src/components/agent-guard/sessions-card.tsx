@@ -1,10 +1,50 @@
+"use client";
+
+import { beginCell, toNano } from "@ton/core";
+import { useState } from "react";
+import { useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
+import { storeRevokeSession } from "../../../../../build/AgentGuard/AgentGuard_AgentGuard";
 import { formatTonValue } from "@/components/agent-guard/guard-utils";
+import {
+    getDisplayErrorMessage,
+} from "@/components/agent-guard/guard-utils";
 import type { GuardSessionSummary } from "@/lib/agent-guard/guard-status";
 
 type SessionsCardProps = {
+    guardAddress: string;
     nextSessionId: string | null;
     sessions: GuardSessionSummary[];
+    isWalletConnected: boolean;
+    isOwnerConnected: boolean;
+    isGuardActive: boolean;
     onOpenCreateSession: () => void;
+    onSubmittedRevoke: (
+        sessionId: string
+    ) => Promise<{ revoked: boolean } | null>;
+};
+
+type RevokeSessionState =
+    | "idle"
+    | "validating"
+    | "awaiting-wallet"
+    | "submitted"
+    | "refreshed"
+    | "failed";
+
+type RevokeSessionFeedback = {
+    state: RevokeSessionState;
+    message: string;
+};
+
+const REVOKE_SESSION_TRANSACTION_VALUE = toNano("0.02").toString();
+
+const revokeStatusToneClasses: Record<RevokeSessionState, string> = {
+    idle: "text-white/60",
+    validating: "text-white/80",
+    "awaiting-wallet": "text-white/80",
+    submitted: "text-white/80",
+    refreshed: "text-emerald-200",
+    failed: "text-rose-200",
 };
 
 function getCreatedSessionCount(nextSessionId: string | null) {
@@ -63,12 +103,24 @@ function getSessionStatus(session: GuardSessionSummary) {
     return "Active";
 }
 
-function SessionRow({ session }: { session: GuardSessionSummary }) {
+function SessionRow({
+    session,
+    actionLabel,
+    actionDisabled,
+    onRevoke,
+    feedback,
+}: {
+    session: GuardSessionSummary;
+    actionLabel: string;
+    actionDisabled: boolean;
+    onRevoke: () => void;
+    feedback?: RevokeSessionFeedback;
+}) {
     const status = getSessionStatus(session);
 
     return (
         <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-            <div className="grid gap-4 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,0.65fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]">
                 <div>
                     <p className="text-xs uppercase tracking-wide text-white/40">
                         Session
@@ -84,6 +136,15 @@ function SessionRow({ session }: { session: GuardSessionSummary }) {
                     </p>
                     <p className="mt-2 break-all text-sm text-white" title={session.agent}>
                         {formatShortAddress(session.agent)}
+                    </p>
+                </div>
+
+                <div>
+                    <p className="text-xs uppercase tracking-wide text-white/40">
+                        Target
+                    </p>
+                    <p className="mt-2 break-all text-sm text-white" title={session.target}>
+                        {formatShortAddress(session.target)}
                     </p>
                 </div>
 
@@ -156,18 +217,167 @@ function SessionRow({ session }: { session: GuardSessionSummary }) {
                     >
                         {status}
                     </span>
+                    <button
+                        type="button"
+                        onClick={onRevoke}
+                        disabled={actionDisabled}
+                        className="mt-3 inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/45"
+                    >
+                        {actionLabel}
+                    </button>
                 </div>
             </div>
+
+            {feedback?.message ? (
+                <p
+                    className={`mt-4 text-sm leading-6 ${revokeStatusToneClasses[feedback.state]}`}
+                >
+                    {feedback.message}
+                </p>
+            ) : null}
         </div>
     );
 }
 
 export function SessionsCard({
+    guardAddress,
     nextSessionId,
     sessions,
+    isWalletConnected,
+    isOwnerConnected,
+    isGuardActive,
     onOpenCreateSession,
+    onSubmittedRevoke,
 }: SessionsCardProps) {
+    const [tonConnectUI] = useTonConnectUI();
+    const wallet = useTonWallet();
+    const [activeRevokeSessionId, setActiveRevokeSessionId] = useState<string | null>(
+        null
+    );
+    const [revokeFeedbackById, setRevokeFeedbackById] = useState<
+        Record<string, RevokeSessionFeedback>
+    >({});
     const createdSessionCount = getCreatedSessionCount(nextSessionId);
+
+    const setRevokeFeedback = (
+        sessionId: string,
+        state: RevokeSessionState,
+        message: string
+    ) => {
+        setRevokeFeedbackById((current) => ({
+            ...current,
+            [sessionId]: {
+                state,
+                message,
+            },
+        }));
+    };
+
+    const handleRevokeSession = async (session: GuardSessionSummary) => {
+        if (session.revoked) {
+            return;
+        }
+
+        if (!isWalletConnected) {
+            setRevokeFeedback(
+                session.id,
+                "failed",
+                "Connect the owner wallet before revoking a session."
+            );
+            return;
+        }
+
+        if (!isOwnerConnected) {
+            setRevokeFeedback(
+                session.id,
+                "failed",
+                "Only the owner wallet can revoke sessions on this guard."
+            );
+            return;
+        }
+
+        if (!isGuardActive) {
+            setRevokeFeedback(
+                session.id,
+                "failed",
+                "This AgentGuard is not active yet."
+            );
+            return;
+        }
+
+        setActiveRevokeSessionId(session.id);
+        setRevokeFeedback(session.id, "validating", `Checking session ${session.id}...`);
+
+        try {
+            const payload = beginCell()
+                .store(
+                    storeRevokeSession({
+                        $$type: "RevokeSession",
+                        sessionId: BigInt(session.id),
+                    })
+                )
+                .endCell()
+                .toBoc()
+                .toString("base64");
+
+            setRevokeFeedback(
+                session.id,
+                "awaiting-wallet",
+                `Confirm the revoke transaction for session ${session.id} in your wallet.`
+            );
+
+            await tonConnectUI.sendTransaction({
+                validUntil: Math.floor(Date.now() / 1000) + 300,
+                network: wallet?.account.chain,
+                messages: [
+                    {
+                        address: guardAddress,
+                        amount: REVOKE_SESSION_TRANSACTION_VALUE,
+                        payload,
+                    },
+                ],
+            });
+
+            setRevokeFeedback(
+                session.id,
+                "submitted",
+                `Revoke submitted for session ${session.id}. Refreshing dashboard state...`
+            );
+
+            try {
+                const refreshed = await onSubmittedRevoke(session.id);
+
+                if (refreshed?.revoked) {
+                    setRevokeFeedback(
+                        session.id,
+                        "refreshed",
+                        `Session ${session.id} revoked and dashboard state refreshed.`
+                    );
+                    return;
+                }
+
+                setRevokeFeedback(
+                    session.id,
+                    "failed",
+                    `The wallet signed the revoke transaction, but session ${session.id} still appears active. Refresh again in a few seconds.`
+                );
+            } catch {
+                setRevokeFeedback(
+                    session.id,
+                    "submitted",
+                    `Session ${session.id} revoke submitted. Chain refresh may take a few seconds.`
+                );
+            }
+        } catch (error) {
+            setRevokeFeedback(
+                session.id,
+                "failed",
+                getDisplayErrorMessage(error, "Failed to revoke session")
+            );
+        } finally {
+            setActiveRevokeSessionId(null);
+        }
+    };
 
     return (
         <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
@@ -181,8 +391,8 @@ export function SessionsCard({
                     </h2>
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
                         Review each session row, its budget, expiry, current usage,
-                        and lifecycle state. Each session starts with one initial
-                        allowed target.
+                        and lifecycle state. Each session is pinned to a single
+                        target contract.
                     </p>
                 </div>
 
@@ -219,7 +429,34 @@ export function SessionsCard({
                     </div>
 
                     {sessions.map((session) => (
-                        <SessionRow key={session.id} session={session} />
+                        <SessionRow
+                            key={session.id}
+                            session={session}
+                            actionLabel={
+                                session.revoked
+                                    ? "Revoked"
+                                    : activeRevokeSessionId === session.id
+                                      ? revokeFeedbackById[session.id]?.state ===
+                                        "validating"
+                                          ? "Validating..."
+                                          : revokeFeedbackById[session.id]?.state ===
+                                              "awaiting-wallet"
+                                            ? "Awaiting wallet..."
+                                            : "Refreshing..."
+                                      : "Revoke session"
+                            }
+                            actionDisabled={
+                                session.revoked ||
+                                activeRevokeSessionId !== null ||
+                                !isWalletConnected ||
+                                !isOwnerConnected ||
+                                !isGuardActive
+                            }
+                            onRevoke={() => {
+                                void handleRevokeSession(session);
+                            }}
+                            feedback={revokeFeedbackById[session.id]}
+                        />
                     ))}
                 </div>
             )}
