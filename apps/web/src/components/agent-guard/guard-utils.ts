@@ -1,13 +1,6 @@
 import { Address, fromNano } from "@ton/core";
 
-export type GuardStatusResponse = {
-    address: string;
-    isDeployed: boolean;
-    state: string;
-    balance: string;
-    reservedBalance: string | null;
-    availableBalance: string | null;
-};
+export type { GuardStatusResponse } from "@/lib/agent-guard/guard-status";
 
 export function areSameAddress(left: string, right: string) {
     return Address.parse(left).equals(Address.parse(right));
@@ -46,4 +39,70 @@ export function formatDeploymentLabel(isDeployed: boolean, state: string) {
     }
 
     return state === "unknown" ? "Unknown" : state;
+}
+
+function readNonEmptyString(value: unknown) {
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function extractErrorMessage(error: unknown): string | null {
+    const directMessage = readNonEmptyString(error);
+
+    if (directMessage) {
+        return directMessage;
+    }
+
+    if (error instanceof Error) {
+        if (error.name === "UserRejectsError") {
+            return "Request rejected in wallet.";
+        }
+
+        const errorMessage = readNonEmptyString(error.message);
+
+        if (errorMessage) {
+            return errorMessage;
+        }
+
+        const errorCause = extractErrorMessage(error.cause);
+
+        if (errorCause) {
+            return errorCause;
+        }
+
+        return readNonEmptyString(error.name);
+    }
+
+    if (!error || typeof error !== "object") {
+        return null;
+    }
+
+    if ("message" in error) {
+        const objectMessage = readNonEmptyString(error.message);
+
+        if (objectMessage) {
+            return objectMessage;
+        }
+    }
+
+    if ("info" in error) {
+        const objectInfo = readNonEmptyString(error.info);
+
+        if (objectInfo) {
+            return objectInfo;
+        }
+    }
+
+    if ("cause" in error) {
+        const objectCause = extractErrorMessage(error.cause);
+
+        if (objectCause) {
+            return objectCause;
+        }
+    }
+
+    return null;
+}
+
+export function getDisplayErrorMessage(error: unknown, fallback: string) {
+    return extractErrorMessage(error) ?? fallback;
 }

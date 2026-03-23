@@ -7,6 +7,8 @@ import {
     useTonAddress,
     useTonConnectUI,
 } from "@tonconnect/ui-react";
+import { readGuardStatusAction } from "@/app/actions/read-guard-status";
+import { getDisplayErrorMessage } from "@/components/agent-guard/guard-utils";
 
 type GuardStatus = "idle" | "checking" | "not-deployed" | "deployed" | "deploying";
 
@@ -58,19 +60,7 @@ export function CreateGuardCard() {
                 setStateInit(prepareData.stateInit);
                 setDeployAmount(prepareData.amount);
 
-                const statusRes = await fetch(
-                    `/api/guards/status?address=${encodeURIComponent(prepareData.address)}`,
-                    {
-                        method: "GET",
-                        cache: "no-store",
-                    }
-                );
-
-                const statusData = await statusRes.json();
-
-                if (!statusRes.ok) {
-                    throw new Error(statusData.error || "Failed to check guard status");
-                }
+                const statusData = await readGuardStatusAction(prepareData.address);
 
                 if (statusData.isDeployed) {
                     setGuardStatus("deployed");
@@ -81,9 +71,7 @@ export function CreateGuardCard() {
                 }
             } catch (error) {
                 setGuardStatus("idle");
-                setStatusText(
-                    error instanceof Error ? error.message : "Something went wrong"
-                );
+                setStatusText(getDisplayErrorMessage(error, "Something went wrong"));
             }
         };
 
@@ -119,17 +107,9 @@ export function CreateGuardCard() {
 
             setStatusText("Transaction submitted. Re-checking guard status...");
 
-            const statusRes = await fetch(
-                `/api/guards/status?address=${encodeURIComponent(guardAddress)}`,
-                {
-                    method: "GET",
-                    cache: "no-store",
-                }
-            );
+            const statusData = await readGuardStatusAction(guardAddress);
 
-            const statusData = await statusRes.json();
-
-            if (statusRes.ok && statusData.isDeployed) {
+            if (statusData.isDeployed) {
                 setGuardStatus("deployed");
                 setStatusText("Your guard is deployed.");
             } else {
@@ -138,9 +118,7 @@ export function CreateGuardCard() {
             }
         } catch (error) {
             setGuardStatus(guardAddress ? "not-deployed" : "idle");
-            setStatusText(
-                error instanceof Error ? error.message : "Deployment failed"
-            );
+            setStatusText(getDisplayErrorMessage(error, "Deployment failed"));
         } finally {
             setIsBusy(false);
         }

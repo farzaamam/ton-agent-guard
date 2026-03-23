@@ -5,6 +5,7 @@ type GuardOverviewCardProps = {
     isDeployed: boolean;
     state: string;
     onchainBalance: string;
+    onOpenFundGuard: () => void;
     onRefresh: () => void;
     isRefreshing: boolean;
 };
@@ -34,12 +35,13 @@ export function GuardOverviewCard({
     isDeployed,
     state,
     onchainBalance,
+    onOpenFundGuard,
     onRefresh,
     isRefreshing,
 }: GuardOverviewCardProps) {
     return (
         <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <p className="text-sm uppercase tracking-[0.2em] text-white/40">
                         Overview
@@ -53,26 +55,35 @@ export function GuardOverviewCard({
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <span
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                            isDeployed
-                                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-                                : "border-white/10 bg-white/5 text-white/60"
-                        }`}
-                    >
-                        {isDeployed ? "Active" : "Not active"}
-                    </span>
+                <button
+                    type="button"
+                    onClick={onOpenFundGuard}
+                    disabled={!isDeployed}
+                    className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    Fund Guard
+                </button>
+            </div>
 
-                    <button
-                        type="button"
-                        onClick={onRefresh}
-                        disabled={isRefreshing}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        {isRefreshing ? "Refreshing..." : "Refresh"}
-                    </button>
-                </div>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+                <span
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                        isDeployed
+                            ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                            : "border-white/10 bg-white/5 text-white/60"
+                    }`}
+                >
+                    {isDeployed ? "Active" : "Not active"}
+                </span>
+
+                <button
+                    type="button"
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {isRefreshing ? "Refreshing..." : "Refresh"}
+                </button>
             </div>
 
             <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]">

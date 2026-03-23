@@ -9,15 +9,18 @@ import {
     useTonWallet,
 } from "@tonconnect/ui-react";
 import { useEffect, useState } from "react";
-import { FundGuardCard } from "@/components/agent-guard/fund-guard-card";
-import { GuardActionsCard } from "@/components/agent-guard/guard-actions-card";
+import { CreateSessionModal } from "@/components/agent-guard/create-session-modal";
+import { FundGuardModal } from "@/components/agent-guard/fund-guard-modal";
 import { GuardOverviewCard } from "@/components/agent-guard/guard-overview-card";
+import { SessionsCard } from "@/components/agent-guard/sessions-card";
 import {
     GuardStatusResponse,
     areSameAddress,
     formatDeploymentLabel,
+    getDisplayErrorMessage,
     formatTonValue,
 } from "@/components/agent-guard/guard-utils";
+import { readGuardStatusAction } from "@/app/actions/read-guard-status";
 
 type GuardDashboardProps = {
     address: string;
@@ -30,35 +33,8 @@ type OwnerState = "idle" | "loading" | "ready" | "error";
 const FUND_PRESETS = ["0.05", "0.1", "0.25"];
 const REFRESH_DELAYS_MS = [1500, 2500, 4000];
 
-function getErrorMessage(error: unknown, fallback: string) {
-    return error instanceof Error ? error.message : fallback;
-}
-
 async function requestGuardStatus(address: string): Promise<GuardStatusResponse> {
-    const response = await fetch(
-        `/api/guards/status?address=${encodeURIComponent(address)}`,
-        {
-            method: "GET",
-            cache: "no-store",
-        }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch guard status");
-    }
-
-    return {
-        address: data.address ?? address,
-        isDeployed: Boolean(data.isDeployed),
-        state: typeof data.state === "string" ? data.state : "unknown",
-        balance: typeof data.balance === "string" ? data.balance : "0",
-        reservedBalance:
-            typeof data.reservedBalance === "string" ? data.reservedBalance : null,
-        availableBalance:
-            typeof data.availableBalance === "string" ? data.availableBalance : null,
-    };
+    return readGuardStatusAction(address);
 }
 
 async function requestPreparedGuard(owner: string) {
@@ -101,6 +77,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
     const [fundAmount, setFundAmount] = useState("0.05");
     const [fundState, setFundState] = useState<FundState>("idle");
     const [fundMessage, setFundMessage] = useState("");
+    const [isFundGuardModalOpen, setIsFundGuardModalOpen] = useState(false);
+    const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] =
+        useState(false);
 
     useEffect(() => {
         let isCancelled = false;
@@ -125,7 +104,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
 
                 setGuardStatus(null);
                 setLoadState("error");
-                setLoadMessage(getErrorMessage(error, "Failed to load AgentGuard"));
+                setLoadMessage(
+                    getDisplayErrorMessage(error, "Failed to load AgentGuard")
+                );
             }
         };
 
@@ -174,7 +155,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
         };
     }, [walletAddress]);
 
-    const refreshGuardStatus = async (options?: { previousBalance?: string }) => {
+    const refreshGuardStatus = async (options?: {
+        shouldStop?: (nextStatus: GuardStatusResponse) => boolean;
+    }) => {
         setIsRefreshing(true);
 
         let lastStatus: GuardStatusResponse | null = null;
@@ -189,8 +172,8 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                 lastStatus = nextStatus;
 
                 if (
-                    !options?.previousBalance ||
-                    nextStatus.balance !== options.previousBalance ||
+                    !options?.shouldStop ||
+                    options.shouldStop(nextStatus) ||
                     attempt === REFRESH_DELAYS_MS.length
                 ) {
                     return nextStatus;
@@ -202,7 +185,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
             return lastStatus;
         } catch (error) {
             setLoadState("error");
-            setLoadMessage(getErrorMessage(error, "Failed to refresh AgentGuard"));
+            setLoadMessage(
+                getDisplayErrorMessage(error, "Failed to refresh AgentGuard")
+            );
             throw error;
         } finally {
             setIsRefreshing(false);
@@ -258,7 +243,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
             amountNano = toNano(amountValue);
         } catch (error) {
             setFundState("error");
-            setFundMessage(getErrorMessage(error, "Enter a valid TON amount."));
+            setFundMessage(
+                getDisplayErrorMessage(error, "Enter a valid TON amount.")
+            );
             return;
         }
 
@@ -290,7 +277,8 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
 
             try {
                 const refreshedStatus = await refreshGuardStatus({
-                    previousBalance,
+                    shouldStop: (nextStatus) =>
+                        nextStatus.balance !== previousBalance,
                 });
 
                 setFundState("success");
@@ -307,9 +295,20 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
             }
         } catch (error) {
             setFundState("error");
-            setFundMessage(getErrorMessage(error, "Funding failed"));
+            setFundMessage(getDisplayErrorMessage(error, "Funding failed"));
         }
     };
+
+    const handleCreateSessionRefresh = async (previousNextSessionId: string | null) =>
+        refreshGuardStatus({
+            shouldStop: (nextStatus) => {
+                if (!previousNextSessionId || !nextStatus.nextSessionId) {
+                    return true;
+                }
+
+                return nextStatus.nextSessionId !== previousNextSessionId;
+            },
+        });
 
     const isOwnerConnected =
         !!walletAddress &&
@@ -395,6 +394,48 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
 
     return (
         <div className="space-y-6">
+            <FundGuardModal
+                isOpen={isFundGuardModalOpen}
+                onClose={() => {
+                    setIsFundGuardModalOpen(false);
+                }}
+                address={guardStatus.address}
+                amount={fundAmount}
+                presets={FUND_PRESETS}
+                isWalletConnected={isWalletConnected}
+                isSubmitting={fundState === "pending"}
+                canSubmit={canSubmitFunding}
+                statusText={fundMessage}
+                statusTone={
+                    fundState === "pending"
+                        ? "pending"
+                        : fundState === "success"
+                          ? "success"
+                          : fundState === "error"
+                            ? "error"
+                            : "neutral"
+                }
+                onAmountChange={handleAmountChange}
+                onPresetSelect={handlePresetSelect}
+                onSubmit={() => {
+                    void handleFundGuard();
+                }}
+            />
+
+            <CreateSessionModal
+                isOpen={isCreateSessionModalOpen}
+                onClose={() => {
+                    setIsCreateSessionModalOpen(false);
+                }}
+                guardAddress={guardStatus.address}
+                nextSessionId={guardStatus.nextSessionId}
+                availableBalance={guardStatus.availableBalance}
+                isWalletConnected={isWalletConnected}
+                isOwnerConnected={isOwnerConnected}
+                isGuardActive={guardStatus.isDeployed}
+                onSubmittedRefresh={handleCreateSessionRefresh}
+            />
+
             <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
@@ -405,8 +446,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                             AgentGuard
                         </h2>
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
-                            Operate a deployed guard, review its onchain state, and fund it
-                            from the connected wallet.
+                            Operate a deployed guard, review its onchain state, fund it
+                            from the connected wallet, and create owner-controlled
+                            sessions.
                         </p>
                     </div>
 
@@ -424,6 +466,9 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                     placeholder: "0 TON",
                     maximumFractionDigits: 4,
                 })}
+                onOpenFundGuard={() => {
+                    setIsFundGuardModalOpen(true);
+                }}
                 onRefresh={() => {
                     void refreshGuardStatus();
                 }}
@@ -466,33 +511,12 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                 </section>
             ) : (
                 <>
-                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-                        <FundGuardCard
-                            address={guardStatus.address}
-                            amount={fundAmount}
-                            presets={FUND_PRESETS}
-                            isWalletConnected={isWalletConnected}
-                            isSubmitting={fundState === "pending"}
-                            canSubmit={canSubmitFunding}
-                            statusText={fundMessage}
-                            statusTone={
-                                fundState === "pending"
-                                    ? "pending"
-                                    : fundState === "success"
-                                      ? "success"
-                                      : fundState === "error"
-                                        ? "error"
-                                        : "neutral"
-                            }
-                            onAmountChange={handleAmountChange}
-                            onPresetSelect={handlePresetSelect}
-                            onSubmit={() => {
-                                void handleFundGuard();
-                            }}
-                        />
-
-                        <GuardActionsCard />
-                    </div>
+                    <SessionsCard
+                        nextSessionId={guardStatus.nextSessionId}
+                        onOpenCreateSession={() => {
+                            setIsCreateSessionModalOpen(true);
+                        }}
+                    />
                 </>
             )}
         </div>
