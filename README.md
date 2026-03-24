@@ -1,151 +1,167 @@
 # TON AgentGuard
 
-**On-chain session-based execution guard for AI agents on TON.**
+**On-chain execution guard for TON agents.**
 
-AgentGuard is a TON-native guard contract that lets an owner delegate **bounded, revocable, and time-limited execution authority** to an autonomous agent, while keeping enforcement fully on-chain.
+AgentGuard is an on-chain execution guard for TON agents. It gives an owner bounded delegation through fixed target, opcode, spend, expiry, and nonce controls, with revocable enforcement fully on-chain. In strict mode (`policyMode = 1`), exact-body-hash enforcement enables **deterministic action authorization** for one exact pre-approved payload.
 
-It is designed for TON’s actor-based architecture and acts as an execution guardrail layer between agents and target contracts.
+In `opcode-only` mode, AgentGuard is best understood as an on-chain **execution firewall**. In `exact-body-hash` mode, it narrows that authorization to one exact message body via `bodyHash` matching.
 
-By default, AgentGuard is best understood as an on-chain **execution firewall**. In exact-body-hash mode, it can also act as a **deterministic action authorization** primitive for exact pre-approved payload execution.
+## What It Does
 
----
+- The owner deploys and funds an `AgentGuard` contract.
+- The owner creates a bounded session for one agent with fixed target routing, opcode permissioning, spend limits, expiry, and nonce progression.
+- The agent can execute only inside that on-chain session envelope.
+- The owner can revoke the session at any time.
+- Strict mode can pin an exact `bodyHash`, so only the exact pre-approved payload is accepted.
 
-## TON AI Agent Fast Grants Winner
+All execution flows through the guard contract. The agent never receives ambient wallet authority over guard-controlled funds.
 
-AgentGuard was selected as a winner in the **TON AI Agent Fast Grants** round.
+## Why This Matters
 
-The project explores safe on-chain infrastructure for:
+Agents should not receive ambient wallet authority.
 
-- agentic wallets
-- autonomous execution
-- bounded delegation
-- policy-enforced agent interactions on TON
+Delegation should be bounded, revocable, and enforced on-chain.
 
----
+`opcode-only` mode provides a practical execution firewall for one target and one method family. `exact-body-hash` mode narrows that broad method authorization into deterministic action authorization for one exact pre-approved action.
 
 ## Status
 
-Current stage: **tested v0 primitive**
+Current stage: **tested v0.1 primitive**
 
-AgentGuard currently implements session-based bounded execution with:
+AgentGuard currently implements:
 
+- bounded session-based execution
 - spend caps
 - expiry
 - revocation
 - nonce protection
 - fixed target routing
 - `policyMode`-based body checks:
-  - opcode-only
-  - exact-body-hash
+  - `opcode-only`
+  - `exact-body-hash`
 
----
+## Build, Test, and Demo
 
-## Why AgentGuard Exists
+From the repository root:
 
-As AI agents become able to interact with TON wallets and smart contracts, the default model becomes dangerous:
+```bash
+npm install
+npm run build
+npm test
+npx blueprint run demo
+```
 
-- too much authority
-- no bounded delegation
-- no native execution guardrails
-- high risk from agent mistakes or prompt abuse
+`npm run build` uses the repo's root Blueprint build script. If you want a contract-specific compile command, `npx blueprint build AgentGuard` remains available.
 
-AgentGuard introduces a safer model.
+## Recommended Demo Flow
 
-Instead of giving an agent direct wallet control, the owner funds a guard contract and creates a session with explicit constraints. The agent can then execute only within those constraints.
+Use this flow for a concise demo:
 
-This means:
+- deploy and fund the guard
+- create an `opcode-only` session
+- execute an allowed call
+- create a strict `exact-body-hash` session
+- execute the matching payload
+- try the same opcode with a different payload
+- observe the strict rejection
 
-- the owner defines the execution envelope
-- the agent receives limited authority
-- all enforcement happens on-chain
-- sessions can be revoked at any time
-
-AgentGuard is infrastructure for safer autonomous execution on TON.
-
----
-
-## What AgentGuard Enforces Today
-
-Each session currently supports:
-
-- **expiry** — time-bound authority
-- **max per transaction** — cap on a single forwarded execution
-- **max total spend** — cap across the whole session
-- **nonce-based replay protection** — ordered execution and replay prevention
-- **fixed target** — agent can execute only against the configured contract
-- **allowed opcode** — the forwarded body must begin with the configured 32-bit opcode
-- **`policyMode` / `bodyHash`** — session chooses opcode-only or exact-body-hash enforcement
-- **revocation** — owner can disable a session at any time
-
-All execution flows through the guard contract.
-
-The agent never receives unrestricted custody over guard-controlled funds.
-
----
+The demo output is phase-based so it can be followed live from the console.
 
 ## Session Policy Modes
 
-AgentGuard currently supports two session policy modes:
+AgentGuard supports two `policyMode` values:
 
 - `policyMode = 0` — **opcode-only**
-  - session pins `agent`, `target`, `allowedOp`, budget, expiry, and nonce
-  - any body with the configured opcode is accepted
+  - pins `agent`, `target`, `allowedOp`, spend limits, expiry, and nonce
+  - accepts any body whose first 32 bits match the configured opcode
 
 - `policyMode = 1` — **exact-body-hash**
-  - session pins `agent`, `target`, `allowedOp`, and exact `bodyHash`
-  - the executed message body must hash exactly to the stored `bodyHash`
+  - pins the same session envelope plus an exact `bodyHash`
+  - accepts only a body whose opcode matches and whose full hash matches the stored `bodyHash`
 
-Exact-body-hash mode still keeps opcode validation.
+Strict mode is not "body hash instead of opcode". It is **opcode + exact payload**.
 
-It is not "body hash instead of opcode". It is **opcode + exact payload**.
+That is the core distinction:
 
-This makes the default mode an execution firewall and the exact-body-hash mode a more deterministic action authorization path.
+- `opcode-only` is an **execution firewall**
+- `exact-body-hash` enables **deterministic action authorization**
 
----
+## Current Boundary
 
-## Short Examples
+AgentGuard does **not** currently provide:
 
-### Example A — opcode-only
+- generic semantic parsing
+- arbitrary field-level predicates
+- amount ranges
+- recipient allowlists
+- general policy DSL behavior
 
-An owner creates a session for one agent against one target contract with one allowed opcode, plus spend and expiry limits.
+AgentGuard **does** currently provide:
 
-The agent can call that target method repeatedly within the session budget, as long as the forwarded body starts with the allowed opcode.
+- bounded delegation through fixed target, opcode, spend, expiry, and nonce controls
+- exact payload authorization in strict mode through exact `bodyHash` matching
 
-### Example B — exact-body-hash
-
-An owner pre-builds one exact internal message body, computes its `bodyHash`, and stores that hash in an exact-body-hash session.
-
-The agent can execute only that exact pre-approved payload against the configured target. If any field inside the body changes, execution is rejected.
-
----
+Strict mode materially narrows broad method authorization, but AgentGuard should still be described as bounded execution infrastructure rather than a general semantic policy engine.
 
 ## How It Works
 
 High-level flow:
 
-1. Owner deploys `AgentGuard`
-2. Owner funds the contract
-3. Owner creates a session for a specific agent
-4. Agent sends an `Execute` request
-5. AgentGuard checks session constraints
-6. If valid, AgentGuard forwards the internal message to the configured target
+1. Owner deploys `AgentGuard`.
+2. Owner funds the contract.
+3. Owner creates a session for a specific agent.
+4. Agent sends an `Execute` request.
+5. AgentGuard validates the session envelope.
+6. If valid, AgentGuard forwards the internal message to the configured target.
 
 Validation includes:
 
 - session exists
-- sender matches authorized agent
+- sender matches the authorized agent
 - session is not revoked
 - session is not expired
-- nonce matches expected value
+- nonce matches the expected value
 - per-transaction spend is within limit
 - total session spend remains within limit
 - forwarded target is fixed by the session
 - message body opcode matches the session
-- if `policyMode = 1`, message body hash matches the stored `bodyHash`
+- if `policyMode = 1`, message `bodyHash` matches the stored `bodyHash`
 
 If any check fails, execution is rejected on-chain.
 
----
+## Current Security Model
+
+AgentGuard currently provides:
+
+- session-scoped delegated authority
+- replay protection via nonce
+- bounded spending
+- bounded target access
+- bounded message action via `opcode-only` or `exact-body-hash` policy
+- owner-controlled revocation
+- on-chain enforcement of session constraints
+
+The trust model is intentionally simple:
+
+- funds are held by the `AgentGuard` contract
+- the owner controls session creation and revocation
+- the agent can act only inside an active session's limits
+
+## Important Current Semantics
+
+A few implementation details matter:
+
+- session budgets are policy limits, not isolated per-session balances
+- `getReservedTotal()` reports the current session-locked total only
+- `MIN_STORAGE_RESERVE` is a separate permanent floor for contract survival
+- `getAvailableBalance()` excludes both session-locked funds and `MIN_STORAGE_RESERVE`
+- outbound sends preserve both the session-locked total and `MIN_STORAGE_RESERVE`
+- multiple sessions may exist at once, but funds are not isolated per session
+- spend accounting is based on accepted guarded execution attempts
+- `policyMode = 0` is target + opcode permissioning
+- `policyMode = 1` is target + opcode + exact `bodyHash` permissioning
+
+`opcode-only` mode is intentionally broad if the target method accepts flexible arguments. Strict `exact-body-hash` mode narrows this materially by pinning one exact payload.
 
 ## Why This Fits TON
 
@@ -158,15 +174,11 @@ TON uses an actor-based execution model:
 
 AgentGuard is designed to fit that model directly.
 
-Instead of delegating wallet control to an autonomous system, AgentGuard acts as a **policy-enforcing actor** that mediates message flow between an agent and a target contract.
-
-Execution pattern:
+Instead of delegating wallet control to an autonomous system, AgentGuard acts as a policy-enforcing actor between an agent and a target contract:
 
 **Agent → AgentGuard → Target**
 
-This makes AgentGuard a natural TON-native primitive for bounded agent execution.
-
----
+That makes it a TON-native primitive for bounded autonomous execution.
 
 ## Current Contract Surface
 
@@ -182,7 +194,7 @@ Responsibilities:
 - tracks expected nonce
 - enforces execution constraints
 - pins each session to one target contract, one allowed opcode, and a `policyMode`
-- optionally pins each exact-body-hash session to one exact `bodyHash`
+- optionally pins each `exact-body-hash` session to one exact `bodyHash`
 - forwards validated internal messages
 - supports owner withdrawal of guard-held funds
 
@@ -190,65 +202,7 @@ Responsibilities:
 
 A minimal target contract used in tests and demo flows.
 
-It accepts `Ping` messages and updates an internal counter, making it useful for proving that execution through AgentGuard succeeds or fails as expected.
-
----
-
-## Current Security Model
-
-AgentGuard currently provides:
-
-- session-scoped delegated authority
-- replay protection via nonce
-- bounded spending
-- bounded target access
-- bounded message action via opcode-only or exact-body-hash policy
-- owner-controlled revocation
-- on-chain enforcement of session constraints
-
-The trust model is intentionally simple:
-
-- funds are held by the AgentGuard contract
-- the owner controls session creation and revocation
-- the agent can act only inside an active session’s limits
-
----
-
-## Important Current Semantics
-
-A few implementation details matter:
-
-- Session budgets are **policy limits**, not isolated per-session balances
-- `getReservedTotal()` reports the current session-locked total only
-- `MIN_STORAGE_RESERVE` is a separate permanent floor for contract survival
-- `getAvailableBalance()` excludes both session-locked funds and `MIN_STORAGE_RESERVE`
-- outbound sends preserve both the session-locked total and `MIN_STORAGE_RESERVE`
-- Multiple sessions may exist at once, but funds are not isolated per session
-- Spend accounting is based on accepted guarded execution attempts
-- `policyMode = 0` is **target + opcode** permissioning
-- `policyMode = 1` is **target + opcode + exact payload hash** permissioning
-
-Opcode-only mode is intentionally broad if the target method accepts flexible arguments.
-
-Exact-body-hash mode narrows this materially by pinning one exact payload, but AgentGuard is still not a general semantic policy engine.
-
-It does not yet express rules like:
-
-- any amount up to X
-- any recipient from allowlist Y
-- field-level predicates over arbitrary payloads
-
-That means AgentGuard today is best understood as a **session-scoped execution firewall**, with exact-body-hash mode available for **exact pre-approved payload execution**.
-
----
-
-## Build
-
-Build the contract with:
-
-```bash
-npx blueprint build AgentGuard
-```
+It accepts `Ping` messages and updates an internal counter, which makes it useful for proving that execution through `AgentGuard` succeeds or fails as expected.
 
 ## Testing
 
@@ -266,36 +220,26 @@ The repository includes unit and integration tests covering:
 - spending cap enforcement
 - owner-only withdrawal
 
-Run tests with:
+Run the test suite with:
 
 ```bash
-npx blueprint test
+npm test
 ```
 
----
+## TON AI Agent Fast Grants Winner
 
-## Demo
+AgentGuard was selected as a winner in the **TON AI Agent Fast Grants** round.
 
-The demo flow shows:
+The project explores safe on-chain infrastructure for:
 
-- deploying `AgentGuard`
-- deploying `CounterReceiver`
-- funding the guard
-- creating a session
-- executing through the guard
-- validating successful forwarding
-
-Run:
-
-```bash
-npx blueprint run demo
-```
-
----
+- agentic wallets
+- autonomous execution
+- bounded delegation
+- policy-enforced agent interactions on TON
 
 ## Roadmap Direction
 
-AgentGuard currently focuses on **bounded session-based execution**.
+AgentGuard currently focuses on bounded session-based execution.
 
 Natural future extensions include:
 
@@ -305,22 +249,11 @@ Natural future extensions include:
 - more expressive agent-to-agent routing
 - tooling for safer TON-native agent infrastructure
 
----
-
 ## Summary
 
-AgentGuard is a TON-native primitive for safer autonomous execution.
+AgentGuard gives owners a way to delegate bounded, revocable, time-limited execution authority to TON agents while keeping enforcement fully on-chain.
 
-It gives owners a way to delegate limited, revocable, and time-bound authority to agents while keeping policy enforcement fully on-chain.
+Today, that means:
 
-Today, it already provides a concrete and tested base for:
-
-- agentic wallets
-- bounded automation
-- guarded contract execution
-- safe autonomous systems on TON
-
-In practice, that means:
-
-- **execution firewall** behavior in opcode-only mode
-- **deterministic action authorization** in exact-body-hash mode
+- **execution firewall** behavior in `opcode-only` mode
+- **deterministic action authorization** in strict `exact-body-hash` mode

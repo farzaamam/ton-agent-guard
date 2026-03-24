@@ -7,21 +7,21 @@ export default function Home() {
                 <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                     <div className="hero-panel p-8 text-left sm:p-10 lg:p-12">
                         <div className="page-badge w-fit">
-                            AgentGuard v1 · TON execution guard
+                            AgentGuard v0.1 · TON execution guard
                         </div>
-                        <p className="theme-kicker mt-8">Session-based control</p>
+                        <p className="theme-kicker mt-8">On-chain execution guard</p>
                         <h1 className="mt-4 max-w-4xl text-5xl font-semibold tracking-tight sm:text-7xl">
-                            Bounded execution
+                            Bounded delegation
                             <span className="block text-[var(--accent-strong)]">
                                 for TON agents
                             </span>
                         </h1>
 
                         <p className="theme-copy mt-6 max-w-2xl text-base leading-8 sm:text-lg">
-                            AgentGuard lets you create revocable, time-limited sessions
-                            for AI agents with spend caps, expiry, nonce protection,
-                            fixed target routing, and either opcode-only or
-                            exact-body-hash execution control.
+                            AgentGuard provides bounded delegation through fixed
+                            target, opcode, spend, expiry, and nonce controls.
+                            Strict exact-body-hash enforcement turns broad method
+                            authorization into deterministic action authorization.
                         </p>
 
                         <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row">
@@ -33,7 +33,9 @@ export default function Home() {
                             </Link>
 
                             <a
-                                href="https://github.com"
+                                href="https://github.com/farzaamam/ton-agent-guard#readme"
+                                target="_blank"
+                                rel="noreferrer"
                                 className="theme-secondary-button rounded-2xl px-6 py-3 text-sm"
                             >
                                 View Docs
@@ -48,10 +50,11 @@ export default function Home() {
                                 One guard, revocable sessions, capped spend.
                             </h2>
                             <p className="theme-copy mt-3 text-sm leading-6">
-                                The model gets explicit operating boundaries instead
-                                of ambient wallet access, so owner intent stays
-                                enforced onchain as an execution firewall by default
-                                and a deterministic authorizer in strict mode.
+                                The owner defines explicit on-chain boundaries
+                                instead of handing an agent ambient wallet
+                                authority. AgentGuard acts as an execution
+                                firewall by default and enables deterministic
+                                action authorization in strict mode.
                             </p>
                         </div>
 
@@ -73,9 +76,9 @@ export default function Home() {
                                     Two policy modes
                                 </p>
                                 <p className="theme-copy mt-2 text-sm leading-6">
-                                    Run sessions in opcode-only mode or require an
-                                    exact body hash. Strict mode still keeps opcode
-                                    validation.
+                                    Run sessions in opcode-only mode or pin an
+                                    exact bodyHash. Strict exact-body-hash mode
+                                    still keeps opcode validation.
                                 </p>
                             </div>
                         </div>
@@ -97,11 +100,11 @@ export default function Home() {
                     <div className="theme-panel p-6 text-left">
                         <p className="theme-label">Policy</p>
                         <h2 className="mt-3 text-2xl font-semibold">
-                            Deterministic authorization
+                            Deterministic action authorization
                         </h2>
                         <p className="theme-copy mt-3 text-sm leading-6">
                             Pin each session to one destination contract, one
-                            opcode, and optionally one exact body hash for
+                            opcode, and optionally one exact bodyHash for
                             pre-approved payload execution.
                         </p>
                     </div>
