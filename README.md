@@ -1,259 +1,215 @@
-# TON AgentGuard
+# AgentGuard
 
 **On-chain execution guard for TON agents.**
 
-AgentGuard is an on-chain execution guard for TON agents. It gives an owner bounded delegation through fixed target, opcode, spend, expiry, and nonce controls, with revocable enforcement fully on-chain. In strict mode (`policyMode = 1`), exact-body-hash enforcement enables **deterministic action authorization** for one exact pre-approved payload.
+AgentGuard is a TON-native primitive for bounded delegation. It allows an owner to authorize a narrowly scoped execution session for an agent with fixed target, opcode, spend, expiry, nonce, and optional exact-body-hash controls.
 
-In `opcode-only` mode, AgentGuard is best understood as an on-chain **execution firewall**. In `exact-body-hash` mode, it narrows that authorization to one exact message body via `bodyHash` matching.
+Instead of giving an agent broad wallet authority, AgentGuard lets the owner define exactly what kind of on-chain action is allowed.
 
-## What It Does
+This repository includes:
 
-- The owner deploys and funds an `AgentGuard` contract.
-- The owner creates a bounded session for one agent with fixed target routing, opcode permissioning, spend limits, expiry, and nonce progression.
-- The agent can execute only inside that on-chain session envelope.
-- The owner can revoke the session at any time.
-- Strict mode can pin an exact `bodyHash`, so only the exact pre-approved payload is accepted.
+- **Tact smart contracts** for the on-chain guard
+- **TypeScript tests and scripts** for validation and demo flows
+- **A minimal Next.js demo UI** for presenting the model more clearly
 
-All execution flows through the guard contract. The agent never receives ambient wallet authority over guard-controlled funds.
+Together, these pieces make AgentGuard not just a contract experiment, but a more complete TON execution-guard prototype with both protocol and interface layers.
 
-## Why This Matters
+## Recognition
 
-Agents should not receive ambient wallet authority.
+AgentGuard was selected as one of the winners of the **TON AI Agent Tooling Fast Grants**.
 
-Delegation should be bounded, revocable, and enforced on-chain.
+According to the official announcement, **40 submissions** were received, the prize pool was expanded from **$10K to $14K**, and **14 builders** each received a **$1,000 grant**.
 
-`opcode-only` mode provides a practical execution firewall for one target and one method family. `exact-body-hash` mode narrows that broad method authorization into deterministic action authorization for one exact pre-approved action.
+AgentGuard was recognized in the **Agent SDKs & Tools** category as:
 
-## Status
+> **AgentGuard by Farzam: on-chain wallet guardrails for agents**
 
-Current stage: **tested v0.1 primitive**
+Official announcement: [TON AI Agent Tooling Fast Grants Winners](https://t.me/toncoin/2298)
 
-AgentGuard currently implements:
+## Why this matters
 
-- bounded session-based execution
-- spend caps
+AI agents and automation systems should not receive unrestricted wallet authority.
+
+AgentGuard introduces a safer execution model on TON by allowing owners to create tightly bounded sessions with constraints such as:
+
+- fixed destination contract
+- fixed opcode authorization
+- per-transaction and total spend limits
 - expiry
-- revocation
-- nonce protection
-- fixed target routing
-- `policyMode`-based body checks:
-  - `opcode-only`
-  - `exact-body-hash`
+- nonce-based replay protection
+- optional exact action authorization via body hash
 
-## Build, Test, and Demo
+This shifts control from **“the agent can use the wallet”** to **“the agent can perform only this bounded on-chain action.”**
 
-From the repository root:
+## Tech stack
+
+AgentGuard is built with a focused TON-native stack:
+
+- **Tact** for smart contract development
+- **TON Blueprint** for build, deployment, and scripting workflows
+- **TypeScript** for tests, deployment scripts, and integration logic
+- **Next.js** for the current demo UI
+- **Jest / integration testing** for validating contract behavior and flows
+
+This stack keeps the project close to production reality: contract logic, test coverage, scripting, documentation, and a presentable interface all live in the same repo.
+
+## What the repository currently includes
+
+The current repository includes:
+
+- **AgentGuard contract** in Tact
+- **CounterReceiver demo contract** as a minimal target for allowed / blocked execution flows
+- **Automated tests** covering core contract behavior
+- **Deployment and demo scripts** for local and testnet workflows
+- **A minimal Next.js UI** to present the guard flow and make the project easier to understand visually
+- **Architecture and threat model docs** to explain the design and security assumptions
+
+The web UI is currently intended as a lightweight **demo surface**, not a full production application.
+
+## Core model
+
+AgentGuard is designed around **bounded execution sessions**.
+
+A session can restrict execution through:
+
+- a fixed **agent**
+- a fixed **target** contract
+- a fixed **allowed opcode**
+- **policy mode** selection
+- an optional **exact body hash**
+- **expiry**
+- **max total spend**
+- **max per-transaction spend**
+- **nonce-based replay protection**
+- **owner revocation**
+
+This creates a very explicit authorization model: an agent can only perform the narrowly approved action, within the approved limits.
+
+## Policy modes
+
+AgentGuard currently supports two policy styles:
+
+### `policyMode = 0`
+Opcode-level authorization.
+
+This allows execution only when the outbound message matches the configured target and opcode.
+
+### `policyMode = 1`
+Opcode + exact body hash authorization.
+
+This is the stricter mode. In addition to matching target and opcode, the message body must match the exact approved payload hash.
+
+This turns broad method authorization into **deterministic action authorization**.
+
+## Implemented today
+
+Current AgentGuard capabilities include:
+
+- bounded session creation
+- fixed target authorization
+- opcode-level execution restriction
+- optional exact-body-hash enforcement
+- total and per-transaction spend limits
+- expiry enforcement
+- nonce-based replay protection
+- owner revocation
+- reserved balance protection
+
+## Demo UI
+
+AgentGuard also includes a minimal **Next.js demo UI** in `apps/web`.
+
+The UI is there to make the project easier to understand and present by showing the execution-guard concept in a more accessible form. It complements the contract and script-based flows by giving the repository a visible application layer.
+
+The current UI is intended to support demos, walkthroughs, and visual presentation of the bounded session and execution model.
+
+At this stage, the UI should be understood as a **demo and presentation layer** for the protocol primitive — not yet the final end-user product.
+
+## Repository structure
+
+```text
+contracts/      Tact smart contracts for AgentGuard and demo receivers
+tests/          Unit and integration tests
+scripts/        Deployment and demo scripts
+docs/           Architecture and threat model notes
+apps/web/       Minimal Next.js demo UI
+```
+
+## Recommended demo story
+
+The current repo is best presented through a simple end-to-end story:
+
+1. The owner creates a bounded session for an agent.
+2. The session is tied to a fixed target and allowed opcode.
+3. In strict mode, the session can also pin an exact payload hash.
+4. A matching execution is accepted.
+5. A mismatched execution is blocked.
+6. The owner can revoke the session at any time.
+
+This demonstrates the core idea clearly: **restricted on-chain execution without broad wallet delegation**.
+
+## Build, test, and run
+
+### Install dependencies
 
 ```bash
 npm install
-npm run build
-npm test
-npx blueprint run demo
 ```
 
-`npm run build` uses the repo's root Blueprint build script. If you want a contract-specific compile command, `npx blueprint build AgentGuard` remains available.
+### Build contracts
 
-## Recommended Demo Flow
+```bash
+npx blueprint build
+```
 
-Use this flow for a concise demo:
-
-- deploy and fund the guard
-- create an `opcode-only` session
-- execute an allowed call
-- create a strict `exact-body-hash` session
-- execute the matching payload
-- try the same opcode with a different payload
-- observe the strict rejection
-
-The demo output is phase-based so it can be followed live from the console.
-
-## Session Policy Modes
-
-AgentGuard supports two `policyMode` values:
-
-- `policyMode = 0` — **opcode-only**
-  - pins `agent`, `target`, `allowedOp`, spend limits, expiry, and nonce
-  - accepts any body whose first 32 bits match the configured opcode
-
-- `policyMode = 1` — **exact-body-hash**
-  - pins the same session envelope plus an exact `bodyHash`
-  - accepts only a body whose opcode matches and whose full hash matches the stored `bodyHash`
-
-Strict mode is not "body hash instead of opcode". It is **opcode + exact payload**.
-
-That is the core distinction:
-
-- `opcode-only` is an **execution firewall**
-- `exact-body-hash` enables **deterministic action authorization**
-
-## Current Boundary
-
-AgentGuard does **not** currently provide:
-
-- generic semantic parsing
-- arbitrary field-level predicates
-- amount ranges
-- recipient allowlists
-- general policy DSL behavior
-
-AgentGuard **does** currently provide:
-
-- bounded delegation through fixed target, opcode, spend, expiry, and nonce controls
-- exact payload authorization in strict mode through exact `bodyHash` matching
-
-Strict mode materially narrows broad method authorization, but AgentGuard should still be described as bounded execution infrastructure rather than a general semantic policy engine.
-
-## How It Works
-
-High-level flow:
-
-1. Owner deploys `AgentGuard`.
-2. Owner funds the contract.
-3. Owner creates a session for a specific agent.
-4. Agent sends an `Execute` request.
-5. AgentGuard validates the session envelope.
-6. If valid, AgentGuard forwards the internal message to the configured target.
-
-Validation includes:
-
-- session exists
-- sender matches the authorized agent
-- session is not revoked
-- session is not expired
-- nonce matches the expected value
-- per-transaction spend is within limit
-- total session spend remains within limit
-- forwarded target is fixed by the session
-- message body opcode matches the session
-- if `policyMode = 1`, message `bodyHash` matches the stored `bodyHash`
-
-If any check fails, execution is rejected on-chain.
-
-## Current Security Model
-
-AgentGuard currently provides:
-
-- session-scoped delegated authority
-- replay protection via nonce
-- bounded spending
-- bounded target access
-- bounded message action via `opcode-only` or `exact-body-hash` policy
-- owner-controlled revocation
-- on-chain enforcement of session constraints
-
-The trust model is intentionally simple:
-
-- funds are held by the `AgentGuard` contract
-- the owner controls session creation and revocation
-- the agent can act only inside an active session's limits
-
-## Important Current Semantics
-
-A few implementation details matter:
-
-- session budgets are policy limits, not isolated per-session balances
-- `getReservedTotal()` reports the current session-locked total only
-- `MIN_STORAGE_RESERVE` is a separate permanent floor for contract survival
-- `getAvailableBalance()` excludes both session-locked funds and `MIN_STORAGE_RESERVE`
-- outbound sends preserve both the session-locked total and `MIN_STORAGE_RESERVE`
-- multiple sessions may exist at once, but funds are not isolated per session
-- spend accounting is based on accepted guarded execution attempts
-- `policyMode = 0` is target + opcode permissioning
-- `policyMode = 1` is target + opcode + exact `bodyHash` permissioning
-
-`opcode-only` mode is intentionally broad if the target method accepts flexible arguments. Strict `exact-body-hash` mode narrows this materially by pinning one exact payload.
-
-## Why This Fits TON
-
-TON uses an actor-based execution model:
-
-- contracts are independent actors
-- communication happens through asynchronous messages
-- execution is driven by internal messages
-- there is no shared mutable global state
-
-AgentGuard is designed to fit that model directly.
-
-Instead of delegating wallet control to an autonomous system, AgentGuard acts as a policy-enforcing actor between an agent and a target contract:
-
-**Agent → AgentGuard → Target**
-
-That makes it a TON-native primitive for bounded autonomous execution.
-
-## Current Contract Surface
-
-### `AgentGuard`
-
-The core contract.
-
-Responsibilities:
-
-- stores contract owner
-- creates and revokes sessions
-- tracks session spending
-- tracks expected nonce
-- enforces execution constraints
-- pins each session to one target contract, one allowed opcode, and a `policyMode`
-- optionally pins each `exact-body-hash` session to one exact `bodyHash`
-- forwards validated internal messages
-- supports owner withdrawal of guard-held funds
-
-### `CounterReceiver`
-
-A minimal target contract used in tests and demo flows.
-
-It accepts `Ping` messages and updates an internal counter, which makes it useful for proving that execution through `AgentGuard` succeeds or fails as expected.
-
-## Testing
-
-The repository includes unit and integration tests covering:
-
-- deployment
-- session creation
-- successful guarded execution
-- opcode mismatch rejection
-- exact-body-hash success and mismatch paths
-- replay rejection
-- unauthorized sender rejection
-- target and opcode enforcement
-- expiry and revocation
-- spending cap enforcement
-- owner-only withdrawal
-
-Run the test suite with:
+### Run tests
 
 ```bash
 npm test
 ```
 
-## TON AI Agent Fast Grants Winner
+### Run the demo UI
 
-AgentGuard was selected as a winner in the **TON AI Agent Fast Grants** round.
+```bash
+cd apps/web
+npm install
+npm run dev
+```
 
-The project explores safe on-chain infrastructure for:
+Then open the local Next.js app in your browser. The UI is currently intended as a minimal demo surface for presenting the AgentGuard flow.
 
-- agentic wallets
-- autonomous execution
-- bounded delegation
-- policy-enforced agent interactions on TON
+## Security notes
 
-## Roadmap Direction
+AgentGuard is intended to reduce delegation risk, not eliminate all system risk.
 
-AgentGuard currently focuses on bounded session-based execution.
+Important semantics:
 
-Natural future extensions include:
+- authorization is bounded by session policy
+- replay is limited via nonce progression
+- session usage is bounded by spend controls and expiry
+- accepted execution represents **approved dispatch**, not guaranteed downstream success
 
-- approval-based execution escalation
-- richer semantic policy expressions
-- argument-level restrictions beyond exact payload hashes
-- more expressive agent-to-agent routing
-- tooling for safer TON-native agent infrastructure
+That distinction matters: once a valid execution is accepted and sent, downstream failure does not necessarily undo the session accounting decision.
 
-## Summary
+For deeper design notes, refer to:
 
-AgentGuard gives owners a way to delegate bounded, revocable, time-limited execution authority to TON agents while keeping enforcement fully on-chain.
+- `docs/ARCHITECTURE.md`
+- `docs/THREAT_MODEL.md`
 
-Today, that means:
+## Current project status
 
-- **execution firewall** behavior in `opcode-only` mode
-- **deterministic action authorization** in strict `exact-body-hash` mode
+AgentGuard is currently best understood as a **clean v0.1 execution-guard primitive** with:
+
+- a focused on-chain contract model
+- test coverage
+- demo tooling
+- a minimal web UI for presentation
+
+It is intentionally narrower than a full policy engine. That simplicity is part of the design.
+
+## Vision
+
+AgentGuard is aimed at a future where AI agents and automated operators can interact with TON under explicit, enforceable, on-chain limits.
+
+The goal is not to trust agents with wallets.
+The goal is to let them operate under **bounded authority**.
