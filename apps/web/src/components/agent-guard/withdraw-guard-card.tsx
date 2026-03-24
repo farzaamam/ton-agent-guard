@@ -35,12 +35,12 @@ const WITHDRAW_GUARD_TRANSACTION_VALUE = toNano("0.02").toString();
 const WITHDRAW_GUARD_SAFETY_BUFFER = toNano("0.02");
 
 const statusToneClasses: Record<WithdrawGuardState, string> = {
-    idle: "text-white/60",
-    validating: "text-white/80",
-    "awaiting-wallet": "text-white/80",
-    submitted: "text-white/80",
-    refreshed: "text-emerald-200",
-    failed: "text-rose-200",
+    idle: "theme-status-neutral",
+    validating: "theme-status-pending",
+    "awaiting-wallet": "theme-status-pending",
+    submitted: "theme-status-pending",
+    refreshed: "theme-status-success",
+    failed: "theme-status-error",
 };
 
 const statusLabels: Record<WithdrawGuardState, string> = {
@@ -302,24 +302,19 @@ export function WithdrawGuardCard({
     };
 
     return (
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                Withdraw Guard
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">
+        <section className="theme-panel p-6">
+            <p className="theme-kicker">Withdraw Guard</p>
+            <h2 className="mt-3 text-2xl font-semibold">
                 Return unlocked TON to the owner
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+            <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                 Withdraw from the guard&apos;s unlocked operating balance back to the
                 connected owner wallet.
             </p>
 
             <div className="mt-6 flex items-end gap-3">
                 <div className="min-w-0 flex-1">
-                    <label
-                        htmlFor="guard-withdraw-amount"
-                        className="text-xs uppercase tracking-wide text-white/40"
-                    >
+                    <label htmlFor="guard-withdraw-amount" className="theme-label">
                         Amount (TON)
                     </label>
                     <input
@@ -330,12 +325,10 @@ export function WithdrawGuardCard({
                         value={amount}
                         onChange={(event) => handleAmountChange(event.target.value)}
                         disabled={isBusy}
-                        className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="theme-input mt-2 text-sm"
                     />
                     {amountError ? (
-                        <p className="mt-2 text-xs leading-5 text-rose-200">
-                            {amountError}
-                        </p>
+                        <p className="theme-error mt-2 text-xs leading-5">{amountError}</p>
                     ) : null}
                 </div>
 
@@ -343,40 +336,36 @@ export function WithdrawGuardCard({
                     type="button"
                     onClick={handleUseMax}
                     disabled={safeWithdrawAmount === null || safeWithdrawAmount <= 0n || isBusy}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="theme-secondary-button rounded-2xl px-4 py-3 text-sm"
                 >
                     Max
                 </button>
             </div>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Destination
-                    </p>
-                    <p className="mt-2 break-all text-sm text-white">
+                <div className="theme-subtle-panel p-4">
+                    <p className="theme-label">Destination</p>
+                    <p className="theme-value mt-2 break-all text-sm">
                         {ownerAddress || "Connect the owner wallet"}
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Available balance
-                    </p>
-                    <p className="mt-2 text-sm text-white">
+                <div className="theme-subtle-panel p-4">
+                    <p className="theme-label">Available balance</p>
+                    <p className="theme-value mt-2 text-sm">
                         {formatTonValue(availableBalance, {
                             placeholder: "Unavailable",
                             maximumFractionDigits: 4,
                         })}
                     </p>
-                    <p className="mt-2 text-xs leading-5 text-white/45">
+                    <p className="theme-hint mt-2 text-xs leading-5">
                         Safe max now:{" "}
                         {formatTonValue(safeWithdrawAmount?.toString(), {
                             placeholder: "Unavailable",
                             maximumFractionDigits: 4,
                         })}
                     </p>
-                    <p className="mt-2 text-xs leading-5 text-white/45">
+                    <p className="theme-hint mt-2 text-xs leading-5">
                         Guard balance:{" "}
                         {formatTonValue(balance, {
                             placeholder: "0 TON",
@@ -386,12 +375,10 @@ export function WithdrawGuardCard({
                 </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+            <div className="theme-subtle-panel mt-4 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <p className="text-xs uppercase tracking-wide text-white/40">
-                            Transaction state
-                        </p>
+                        <p className="theme-label">Transaction state</p>
                         <p
                             className={`mt-2 text-sm ${statusToneClasses[submissionState]}`}
                         >
@@ -400,10 +387,8 @@ export function WithdrawGuardCard({
                     </div>
 
                     <div className="sm:text-right">
-                        <p className="text-xs uppercase tracking-wide text-white/40">
-                            Execution amount
-                        </p>
-                        <p className="mt-2 text-sm text-white">
+                        <p className="theme-label">Execution amount</p>
+                        <p className="theme-value mt-2 text-sm">
                             {formatTonValue(WITHDRAW_GUARD_TRANSACTION_VALUE, {
                                 placeholder: "0 TON",
                                 maximumFractionDigits: 4,
@@ -421,7 +406,7 @@ export function WithdrawGuardCard({
                 ) : null}
             </div>
 
-            <p className="mt-4 text-sm leading-6 text-white/50">{eligibilityHint}</p>
+            <p className="theme-copy mt-4 text-sm leading-6">{eligibilityHint}</p>
 
             <button
                 type="button"
@@ -429,7 +414,7 @@ export function WithdrawGuardCard({
                     void handleSubmit();
                 }}
                 disabled={!canSubmit}
-                className="mt-6 rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="theme-primary-button mt-6 rounded-2xl px-5 py-3 text-sm"
             >
                 {submitLabel}
             </button>

@@ -54,14 +54,16 @@ type PreparedCreateSessionRequest = {
 
 const CREATE_SESSION_TRANSACTION_VALUE = toNano("0.1").toString();
 const CREATE_SESSION_SAFETY_BUFFER = toNano("0.02");
+const CREATE_SESSION_POLICY_MODE_OPCODE_ONLY = 0n;
+const CREATE_SESSION_BODY_HASH_DISABLED = 0n;
 
 const statusToneClasses: Record<CreateSessionState, string> = {
-    idle: "text-white/60",
-    validating: "text-white/80",
-    "awaiting-wallet": "text-white/80",
-    submitted: "text-white/80",
-    refreshed: "text-emerald-200",
-    failed: "text-rose-200",
+    idle: "theme-status-neutral",
+    validating: "theme-status-pending",
+    "awaiting-wallet": "theme-status-pending",
+    submitted: "theme-status-pending",
+    refreshed: "theme-status-success",
+    failed: "theme-status-error",
 };
 
 const statusLabels: Record<CreateSessionState, string> = {
@@ -242,6 +244,8 @@ function prepareCreateSessionPayload(input: PreparedCreateSessionRequest) {
                 agent: Address.parse(input.agent),
                 target: Address.parse(input.target),
                 allowedOp: BigInt(input.allowedOp),
+                policyMode: CREATE_SESSION_POLICY_MODE_OPCODE_ONLY,
+                bodyHash: CREATE_SESSION_BODY_HASH_DISABLED,
                 expiry: BigInt(input.expiry),
                 maxTotal: BigInt(input.maxTotal),
                 maxPerTx: BigInt(input.maxPerTx),
@@ -282,10 +286,7 @@ function SessionField({
 }) {
     return (
         <div>
-            <label
-                htmlFor={id}
-                className="text-xs uppercase tracking-wide text-white/40"
-            >
+            <label htmlFor={id} className="theme-label">
                 {label}
             </label>
             <input
@@ -296,12 +297,12 @@ function SessionField({
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 disabled={disabled}
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-60"
+                className="theme-input mt-2 text-sm"
             />
             {error ? (
-                <p className="mt-2 text-xs leading-5 text-rose-200">{error}</p>
+                <p className="theme-error mt-2 text-xs leading-5">{error}</p>
             ) : hint ? (
-                <p className="mt-2 text-xs leading-5 text-white/45">{hint}</p>
+                <p className="theme-hint mt-2 text-xs leading-5">{hint}</p>
             ) : null}
         </div>
     );
@@ -497,14 +498,12 @@ export function CreateSessionCard({
     };
 
     return (
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                Create Session
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">
+        <section className="theme-panel p-6">
+            <p className="theme-kicker">Create Session</p>
+            <h2 className="mt-3 text-2xl font-semibold">
                 Define the next operator session
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+            <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                 Assign an agent, set expiry and spend caps, then pin the session to
                 one execution target and one allowed body opcode.
             </p>
@@ -574,12 +573,10 @@ export function CreateSessionCard({
                 />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+            <div className="theme-subtle-panel mt-4 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <p className="text-xs uppercase tracking-wide text-white/40">
-                            Transaction state
-                        </p>
+                        <p className="theme-label">Transaction state</p>
                         <p
                             className={`mt-2 text-sm ${statusToneClasses[submissionState]}`}
                         >
@@ -588,16 +585,14 @@ export function CreateSessionCard({
                     </div>
 
                     <div className="sm:text-right">
-                        <p className="text-xs uppercase tracking-wide text-white/40">
-                            Available balance
-                        </p>
-                        <p className="mt-2 text-sm text-white">
+                        <p className="theme-label">Available balance</p>
+                        <p className="theme-value mt-2 text-sm">
                             {formatTonValue(availableBalance, {
                                 placeholder: "Unavailable",
                                 maximumFractionDigits: 4,
                             })}
                         </p>
-                        <p className="mt-2 text-xs leading-5 text-white/45">
+                        <p className="theme-hint mt-2 text-xs leading-5">
                             Safe max total now:{" "}
                             {formatTonValue(safeSessionMaxTotal?.toString(), {
                                 placeholder: "Unavailable",
@@ -616,10 +611,10 @@ export function CreateSessionCard({
                 ) : null}
             </div>
 
-            <p className="mt-3 text-xs leading-5 text-white/45">
+            <p className="theme-hint mt-3 text-xs leading-5">
                 Next session id: {nextSessionId ?? "Unavailable"}
             </p>
-            <p className="mt-4 text-sm leading-6 text-white/50">{eligibilityHint}</p>
+            <p className="theme-copy mt-4 text-sm leading-6">{eligibilityHint}</p>
 
             <button
                 type="button"
@@ -627,7 +622,7 @@ export function CreateSessionCard({
                     void handleSubmit();
                 }}
                 disabled={!canSubmit}
-                className="mt-6 rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="theme-primary-button mt-6 rounded-2xl px-5 py-3 text-sm"
             >
                 {submitLabel}
             </button>

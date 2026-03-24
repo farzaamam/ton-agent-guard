@@ -42,10 +42,7 @@ export function GuardModalShell({
     }
 
     return (
-        <div
-            className="fixed inset-0 z-50 bg-black/80 p-4 backdrop-blur-sm"
-            onClick={onClose}
-        >
+        <div className="theme-overlay fixed inset-0 z-50 p-4" onClick={onClose}>
             <div className="flex min-h-full items-center justify-center">
                 <div
                     className={`relative max-h-[90vh] w-full overflow-y-auto ${maxWidthClassName}`}
@@ -54,7 +51,7 @@ export function GuardModalShell({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="absolute right-4 top-4 z-10 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-xs uppercase tracking-wide text-white/70 transition hover:bg-white/10"
+                        className="theme-modal-close absolute right-4 top-4 z-10"
                     >
                         Close
                     </button>

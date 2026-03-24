@@ -19,33 +19,26 @@ export default async function GuardPage({
     }
 
     return (
-        <main className="min-h-screen bg-black text-white">
-            <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10">
-                <div className="mb-10 flex items-center justify-between gap-4">
-                    <Link
-                        href="/create-guard"
-                        className="text-sm text-white/60 transition hover:text-white"
-                    >
+        <main className="app-shell">
+            <div className="page-frame">
+                <div className="page-nav">
+                    <Link href="/create-guard" className="back-link text-sm">
                         ← Back
                     </Link>
-                    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/60">
-                        Guard Dashboard
-                    </div>
+                    <div className="page-badge">Guard Dashboard</div>
                 </div>
 
-                <div className="mb-8">
-                    <p className="mb-3 text-sm uppercase tracking-[0.2em] text-white/40">
-                        Guard
-                    </p>
-                    <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                <section className="hero-panel p-8 sm:p-10">
+                    <p className="theme-kicker">Guard</p>
+                    <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
                         AgentGuard
                     </h1>
-                    <p className="mt-4 max-w-3xl text-base leading-7 text-white/60">
+                    <p className="theme-copy mt-4 max-w-3xl text-base leading-8">
                         Review guard status, fund the guard, withdraw unlocked
                         balance, create sessions, and operate the deterministic
                         AgentGuard for the connected owner wallet.
                     </p>
-                </div>
+                </section>
 
                 <GuardDashboard address={parsedAddress} />
             </div>

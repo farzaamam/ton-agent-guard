@@ -13,10 +13,10 @@ type FundGuardCardProps = {
 };
 
 const statusToneClasses: Record<FundGuardCardProps["statusTone"], string> = {
-    neutral: "text-white/60",
-    pending: "text-white/80",
-    success: "text-emerald-200",
-    error: "text-rose-200",
+    neutral: "theme-status-neutral",
+    pending: "theme-status-pending",
+    success: "theme-status-success",
+    error: "theme-status-error",
 };
 
 export function FundGuardCard({
@@ -33,14 +33,12 @@ export function FundGuardCard({
     onSubmit,
 }: FundGuardCardProps) {
     return (
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                Fund AgentGuard
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">
+        <section className="theme-panel p-6">
+            <p className="theme-kicker">Fund AgentGuard</p>
+            <h2 className="mt-3 text-2xl font-semibold">
                 Add TON to operating balance
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+            <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                 Send TON from the connected wallet directly to this deployed
                 guard.
             </p>
@@ -52,11 +50,9 @@ export function FundGuardCard({
                         type="button"
                         onClick={() => onPresetSelect(preset)}
                         disabled={isSubmitting}
-                        className={`rounded-full border px-3 py-1 text-sm transition ${
-                            amount === preset
-                                ? "border-white bg-white text-black"
-                                : "border-white/10 bg-black/30 text-white/70 hover:bg-white/10"
-                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                        className={`theme-pill-button px-3 py-1 text-sm ${
+                            amount === preset ? "theme-pill-button-active" : ""
+                        }`}
                     >
                         {preset} TON
                     </button>
@@ -64,10 +60,7 @@ export function FundGuardCard({
             </div>
 
             <div className="mt-6">
-                <label
-                    htmlFor="guard-fund-amount"
-                    className="text-xs uppercase tracking-wide text-white/40"
-                >
+                <label htmlFor="guard-fund-amount" className="theme-label">
                     Amount (TON)
                 </label>
                 <input
@@ -78,18 +71,16 @@ export function FundGuardCard({
                     value={amount}
                     onChange={(event) => onAmountChange(event.target.value)}
                     disabled={isSubmitting}
-                    className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="theme-input mt-2 text-sm"
                 />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-                <p className="text-xs uppercase tracking-wide text-white/40">
-                    Destination
-                </p>
-                <p className="mt-2 break-all text-sm text-white">{address}</p>
+            <div className="theme-subtle-panel mt-4 p-4">
+                <p className="theme-label">Destination</p>
+                <p className="theme-value mt-2 break-all text-sm">{address}</p>
             </div>
 
-            <p className="mt-4 text-sm leading-6 text-white/50">
+            <p className="theme-copy mt-4 text-sm leading-6">
                 {isWalletConnected
                     ? "Funding uses TonConnect and waits for the current wallet to confirm the transfer."
                     : "Connect a wallet to fund this AgentGuard."}
@@ -105,7 +96,7 @@ export function FundGuardCard({
                 type="button"
                 onClick={onSubmit}
                 disabled={!canSubmit}
-                className="mt-6 rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="theme-primary-button mt-6 rounded-2xl px-5 py-3 text-sm"
             >
                 {isSubmitting ? "Waiting for wallet..." : "Fund AgentGuard"}
             </button>

@@ -368,16 +368,12 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
 
     if (loadState === "loading" && !guardStatus) {
         return (
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <section className="theme-panel p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                            Dashboard
-                        </p>
-                        <h2 className="mt-3 text-2xl font-semibold text-white">
-                            Loading AgentGuard
-                        </h2>
-                        <p className="mt-3 text-sm leading-6 text-white/60">
+                        <p className="theme-kicker">Dashboard</p>
+                        <h2 className="mt-3 text-2xl font-semibold">Loading AgentGuard</h2>
+                        <p className="theme-copy mt-3 text-sm leading-6">
                             Checking deployment state and current balance.
                         </p>
                     </div>
@@ -389,16 +385,14 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
 
     if (loadState === "error" && !guardStatus) {
         return (
-            <section className="rounded-3xl border border-rose-400/20 bg-rose-400/5 p-6">
+            <section className="theme-danger-panel p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm uppercase tracking-[0.2em] text-rose-200/70">
-                            Dashboard
-                        </p>
-                        <h2 className="mt-3 text-2xl font-semibold text-white">
+                        <p className="theme-kicker">Dashboard</p>
+                        <h2 className="mt-3 text-2xl font-semibold">
                             Could not load this AgentGuard
                         </h2>
-                        <p className="mt-3 text-sm leading-6 text-rose-100/75">
+                        <p className="theme-error mt-3 text-sm leading-6">
                             {loadMessage}
                         </p>
                     </div>
@@ -408,7 +402,7 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                         onClick={() => {
                             void refreshGuardStatus();
                         }}
-                        className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
+                        className="theme-secondary-button rounded-2xl px-5 py-3 text-sm"
                     >
                         Retry
                     </button>
@@ -480,16 +474,14 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                 onSubmittedRefresh={handleWithdrawGuardRefresh}
             />
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <section className="theme-accent-panel p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
-                        <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                            Dashboard
-                        </p>
-                        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                        <p className="theme-kicker">Dashboard</p>
+                        <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
                             AgentGuard
                         </h2>
-                        <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+                        <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                             Operate a deployed guard, review its onchain state, fund
                             it, withdraw unlocked balance back to the owner, and
                             create owner-controlled sessions.
@@ -524,14 +516,10 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
             />
 
             {!guardStatus.isDeployed ? (
-                <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-                    <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                        Status
-                    </p>
-                    <h2 className="mt-3 text-2xl font-semibold text-white">
-                        AgentGuard not active
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+                <section className="theme-panel p-6">
+                    <p className="theme-kicker">Status</p>
+                    <h2 className="mt-3 text-2xl font-semibold">AgentGuard not active</h2>
+                    <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                         This address is not deployed yet. Return to the current create/open
                         flow to deploy the deterministic guard for your wallet or reopen it
                         once it is live.
@@ -540,7 +528,7 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                     <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                         <Link
                             href="/create-guard"
-                            className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-medium text-black transition hover:bg-white/90"
+                            className="theme-primary-button rounded-2xl px-5 py-3 text-center text-sm"
                         >
                             Back to Guard Setup
                         </Link>
@@ -551,7 +539,7 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                                 void refreshGuardStatus();
                             }}
                             disabled={isRefreshing}
-                            className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="theme-secondary-button rounded-2xl px-5 py-3 text-sm"
                         >
                             {isRefreshing ? "Checking..." : "Check again"}
                         </button>

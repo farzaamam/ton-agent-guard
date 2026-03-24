@@ -22,10 +22,10 @@ function OverviewRow({
     hint?: string;
 }) {
     return (
-        <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-white/40">{label}</p>
-            <p className="mt-2 break-all text-sm text-white">{value}</p>
-            {hint ? <p className="mt-2 text-xs leading-5 text-white/50">{hint}</p> : null}
+        <div className="theme-subtle-panel p-4">
+            <p className="theme-label">{label}</p>
+            <p className="theme-value mt-2 break-all text-sm">{value}</p>
+            {hint ? <p className="theme-hint mt-2 text-xs leading-5">{hint}</p> : null}
         </div>
     );
 }
@@ -44,16 +44,12 @@ export function GuardOverviewCard({
     isRefreshing,
 }: GuardOverviewCardProps) {
     return (
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+        <section className="theme-panel p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                        Overview
-                    </p>
-                    <h2 className="mt-3 text-2xl font-semibold text-white">
-                        Guard overview
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+                    <p className="theme-kicker">Overview</p>
+                    <h2 className="mt-3 text-2xl font-semibold">Guard overview</h2>
+                    <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                         This dashboard manages the deterministic AgentGuard for the
                         connected owner wallet.
                     </p>
@@ -64,7 +60,7 @@ export function GuardOverviewCard({
                         type="button"
                         onClick={onOpenWithdrawGuard}
                         disabled={!canOpenWithdrawGuard}
-                        className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-white/85 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="theme-secondary-button rounded-2xl px-5 py-3 text-sm"
                     >
                         Withdraw Guard
                     </button>
@@ -73,7 +69,7 @@ export function GuardOverviewCard({
                         type="button"
                         onClick={onOpenFundGuard}
                         disabled={!isDeployed}
-                        className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="theme-primary-button rounded-2xl px-5 py-3 text-sm"
                     >
                         Fund Guard
                     </button>
@@ -82,10 +78,8 @@ export function GuardOverviewCard({
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
                 <span
-                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                        isDeployed
-                            ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-                            : "border-white/10 bg-white/5 text-white/60"
+                    className={`theme-pill text-xs font-medium ${
+                        isDeployed ? "theme-pill-active" : ""
                     }`}
                 >
                     {isDeployed ? "Active" : "Not active"}
@@ -95,7 +89,7 @@ export function GuardOverviewCard({
                     type="button"
                     onClick={onRefresh}
                     disabled={isRefreshing}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="theme-pill-button px-3 py-1 text-xs"
                 >
                     {isRefreshing ? "Refreshing..." : "Refresh"}
                 </button>

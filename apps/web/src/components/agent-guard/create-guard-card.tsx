@@ -125,34 +125,30 @@ export function CreateGuardCard() {
     };
 
     return (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+        <div className="theme-panel p-6">
             <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold text-white">My Guard</h2>
+                <h2 className="text-2xl font-semibold">My Guard</h2>
                 <TonConnectButton />
             </div>
 
             <div className="space-y-3">
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Connected wallet
-                    </p>
-                    <p className="mt-2 break-all text-sm text-white">
+                <div className="theme-subtle-panel p-4">
+                    <p className="theme-label">Connected wallet</p>
+                    <p className="theme-value mt-2 break-all text-sm">
                         {walletAddress || "Not connected"}
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Derived AgentGuard address
-                    </p>
-                    <p className="mt-2 break-all text-sm text-white">
+                <div className="theme-subtle-panel p-4">
+                    <p className="theme-label">Derived AgentGuard address</p>
+                    <p className="theme-value mt-2 break-all text-sm">
                         {guardAddress || "Connect wallet to resolve"}
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <p className="text-xs uppercase tracking-wide text-white/40">Status</p>
-                    <p className="mt-2 text-sm text-white">
+                <div className="theme-subtle-panel p-4">
+                    <p className="theme-label">Status</p>
+                    <p className="theme-value mt-2 text-sm">
                         {guardStatus === "idle" && "Waiting for wallet connection"}
                         {guardStatus === "checking" && "Checking your guard"}
                         {guardStatus === "not-deployed" && "Not deployed"}
@@ -162,7 +158,9 @@ export function CreateGuardCard() {
                 </div>
             </div>
 
-            {statusText ? <p className="mt-4 text-sm text-white/70">{statusText}</p> : null}
+            {statusText ? (
+                <p className="theme-copy mt-4 text-sm leading-6">{statusText}</p>
+            ) : null}
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 {guardStatus === "not-deployed" ? (
@@ -170,16 +168,16 @@ export function CreateGuardCard() {
                         type="button"
                         onClick={handleDeployGuard}
                         disabled={!isConnected || isBusy}
-                        className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="theme-primary-button rounded-2xl px-5 py-3 text-sm"
                     >
-                        {isBusy ? "Creating/Deploying..." : "Create AgetGuard"}
+                        {isBusy ? "Creating/Deploying..." : "Create AgentGuard"}
                     </button>
                 ) : null}
 
                 {guardStatus === "deployed" && guardAddress ? (
                     <Link
                         href={`/guards/${encodeURIComponent(guardAddress)}`}
-                        className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-medium text-black transition hover:bg-white/90"
+                        className="theme-primary-button rounded-2xl px-5 py-3 text-center text-sm"
                     >
                         Open AgentGuard
                     </Link>

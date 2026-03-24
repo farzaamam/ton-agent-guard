@@ -39,12 +39,12 @@ type RevokeSessionFeedback = {
 const REVOKE_SESSION_TRANSACTION_VALUE = toNano("0.02").toString();
 
 const revokeStatusToneClasses: Record<RevokeSessionState, string> = {
-    idle: "text-white/60",
-    validating: "text-white/80",
-    "awaiting-wallet": "text-white/80",
-    submitted: "text-white/80",
-    refreshed: "text-emerald-200",
-    failed: "text-rose-200",
+    idle: "theme-status-neutral",
+    validating: "theme-status-pending",
+    "awaiting-wallet": "theme-status-pending",
+    submitted: "theme-status-pending",
+    refreshed: "theme-status-success",
+    failed: "theme-status-error",
 };
 
 function getCreatedSessionCount(nextSessionId: string | null) {
@@ -127,49 +127,35 @@ function SessionRow({
     const status = getSessionStatus(session);
 
     return (
-        <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+        <div className="theme-subtle-panel p-4">
             <div className="grid gap-4 md:grid-cols-[minmax(0,0.65fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto]">
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Session
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-white">
-                        #{session.id}
-                    </p>
+                    <p className="theme-label">Session</p>
+                    <p className="theme-value mt-2 text-sm font-medium">#{session.id}</p>
                 </div>
 
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Agent
-                    </p>
-                    <p className="mt-2 break-all text-sm text-white" title={session.agent}>
+                    <p className="theme-label">Agent</p>
+                    <p className="theme-value mt-2 break-all text-sm" title={session.agent}>
                         {formatShortAddress(session.agent)}
                     </p>
                 </div>
 
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Target
-                    </p>
-                    <p className="mt-2 break-all text-sm text-white" title={session.target}>
+                    <p className="theme-label">Target</p>
+                    <p className="theme-value mt-2 break-all text-sm" title={session.target}>
                         {formatShortAddress(session.target)}
                     </p>
                 </div>
 
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Expiry
-                    </p>
-                    <p className="mt-2 text-sm text-white">
-                        {formatExpiry(session.expiry)}
-                    </p>
+                    <p className="theme-label">Expiry</p>
+                    <p className="theme-value mt-2 text-sm">{formatExpiry(session.expiry)}</p>
                 </div>
 
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Max total
-                    </p>
-                    <p className="mt-2 text-sm text-white">
+                    <p className="theme-label">Max total</p>
+                    <p className="theme-value mt-2 text-sm">
                         {formatTonValue(session.maxTotal, {
                             placeholder: "Unavailable",
                             maximumFractionDigits: 4,
@@ -178,10 +164,8 @@ function SessionRow({
                 </div>
 
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Max per tx
-                    </p>
-                    <p className="mt-2 text-sm text-white">
+                    <p className="theme-label">Max per tx</p>
+                    <p className="theme-value mt-2 text-sm">
                         {formatTonValue(session.maxPerTx, {
                             placeholder: "Unavailable",
                             maximumFractionDigits: 4,
@@ -190,17 +174,15 @@ function SessionRow({
                 </div>
 
                 <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Usage
-                    </p>
-                    <p className="mt-2 text-sm text-white">
+                    <p className="theme-label">Usage</p>
+                    <p className="theme-value mt-2 text-sm">
                         Spent{" "}
                         {formatTonValue(session.spentTotal, {
                             placeholder: "Unavailable",
                             maximumFractionDigits: 4,
                         })}
                     </p>
-                    <p className="mt-2 text-xs leading-5 text-white/45">
+                    <p className="theme-hint mt-2 text-xs leading-5">
                         Op {formatOpcode(session.allowedOp)}
                         {" · "}
                         Locked{" "}
@@ -213,16 +195,14 @@ function SessionRow({
                 </div>
 
                 <div className="md:text-right">
-                    <p className="text-xs uppercase tracking-wide text-white/40">
-                        Status
-                    </p>
+                    <p className="theme-label">Status</p>
                     <span
-                        className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs ${
+                        className={`theme-pill mt-2 text-xs ${
                             status === "Active"
-                                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                                ? "theme-pill-active"
                                 : status === "Revoked"
-                                  ? "border-rose-400/20 bg-rose-400/10 text-rose-200"
-                                  : "border-white/10 bg-white/5 text-white/70"
+                                  ? "theme-pill-danger"
+                                  : ""
                         }`}
                     >
                         {status}
@@ -231,7 +211,7 @@ function SessionRow({
                         type="button"
                         onClick={onRevoke}
                         disabled={actionDisabled}
-                        className="mt-3 inline-flex rounded-full border border-rose-400/20 bg-rose-400/10 px-3 py-1 text-xs font-medium text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/45"
+                        className="theme-danger-button mt-3 rounded-full px-3 py-1 text-xs"
                     >
                         {actionLabel}
                     </button>
@@ -390,16 +370,12 @@ export function SessionsCard({
     };
 
     return (
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+        <section className="theme-panel p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-white/40">
-                        Sessions
-                    </p>
-                    <h2 className="mt-3 text-2xl font-semibold text-white">
-                        Session management
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+                    <p className="theme-kicker">Sessions</p>
+                    <h2 className="mt-3 text-2xl font-semibold">Session management</h2>
+                    <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                         Review each session row, its budget, expiry, current usage,
                         and lifecycle state. Each session is pinned to a single
                         target contract and one allowed message opcode.
@@ -409,31 +385,31 @@ export function SessionsCard({
                 <button
                     type="button"
                     onClick={onOpenCreateSession}
-                    className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
+                    className="theme-primary-button rounded-2xl px-5 py-3 text-sm"
                 >
                     Create Session
                 </button>
             </div>
 
             {createdSessionCount === null ? (
-                <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
-                    <p className="text-sm text-white">Session reads are unavailable.</p>
-                    <p className="mt-2 text-sm leading-6 text-white/50">
+                <div className="theme-subtle-panel mt-6 p-5">
+                    <p className="theme-value text-sm">Session reads are unavailable.</p>
+                    <p className="theme-copy mt-2 text-sm leading-6">
                         The guard is still operational, but the session counter could
                         not be resolved from chain right now.
                     </p>
                 </div>
             ) : createdSessionCount === 0n ? (
-                <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
-                    <p className="text-sm text-white">No sessions created yet.</p>
-                    <p className="mt-2 text-sm leading-6 text-white/50">
+                <div className="theme-subtle-panel mt-6 p-5">
+                    <p className="theme-value text-sm">No sessions created yet.</p>
+                    <p className="theme-copy mt-2 text-sm leading-6">
                         Create the first session to start managing agent budgets and
                         expiry windows from this dashboard.
                     </p>
                 </div>
             ) : (
                 <div className="mt-6 space-y-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs uppercase tracking-wide text-white/45">
+                    <div className="theme-subtle-panel px-4 py-3 text-xs uppercase tracking-wide text-[var(--muted)]">
                         Showing {sessions.length} of {createdSessionCount.toString()} session
                         {createdSessionCount === 1n ? "" : "s"}
                     </div>
