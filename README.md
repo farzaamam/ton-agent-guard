@@ -22,7 +22,7 @@ In the official winners announcement, AgentGuard was listed under **Infrastructu
 
 > **AgentGuard by Farzam — on-chain wallet guardrails for agents (spend limits, sessions, whitelists)**
 
-Official announcement: [TON AI Agent Tooling Fast Grants Winners](https://t.me/toncoin/2298)
+Official announcements: [IdentityHub Contest Page](https://identityhub.app/contests/agent-tooling-fast-grants) · [TON Telegram Announcement](https://t.me/toncoin/2298)
 
 ## Why this matters
 
@@ -59,7 +59,7 @@ The current repository includes:
 - **CounterReceiver demo contract** as a minimal target for allowed / blocked execution flows
 - **Automated tests** covering core contract behavior
 - **Deployment and demo scripts** for local and testnet workflows
-- **A minimal Next.js UI** to present the guard flow and make the project easier to understand visually
+- **A minimal Next.js UI** that makes AgentGuard more practically accessible and easier to understand, demo, and use in a more realistic application flow
 - **Architecture and threat model docs** to explain the design and security assumptions
 
 The web UI is currently intended as a lightweight **demo surface**, not a full production application.

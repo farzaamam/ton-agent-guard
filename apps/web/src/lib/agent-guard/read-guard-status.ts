@@ -140,12 +140,9 @@ export async function readGuardStatus(addressInput: string): Promise<GuardStatus
             reservedBalance = await readOptionalGetter(() =>
                 agentGuard.getGetReservedTotal()
             );
-            availableBalance =
-                reservedBalance !== null
-                    ? (BigInt(balance) - BigInt(reservedBalance)).toString()
-                    : await readOptionalGetter(() =>
-                          agentGuard.getGetAvailableBalance()
-                      );
+            availableBalance = await readOptionalGetter(() =>
+                agentGuard.getGetAvailableBalance()
+            );
             const sessionReadResult = await readSessionSummaries(
                 agentGuard,
                 nextSessionId

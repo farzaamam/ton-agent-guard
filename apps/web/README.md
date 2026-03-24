@@ -17,7 +17,6 @@ From the repository root:
 ```bash
 npm install
 cd apps/web
-cp .env.example .env.local
 ```
 
 Set the environment variables you need in `apps/web/.env.local`.
@@ -32,7 +31,7 @@ The dashboard is available at [http://localhost:3000](http://localhost:3000).
 
 ## Environment
 
-`apps/web/.env.example` includes the supported variables:
+`apps/web/.env.local` currently uses these variables:
 
 ```bash
 TONCENTER_API_KEY=
