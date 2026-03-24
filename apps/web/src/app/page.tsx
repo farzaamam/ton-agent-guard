@@ -1,124 +1,84 @@
 import Link from "next/link";
 
+const landingHighlights = [
+    {
+        label: "Routing",
+        title: "Fixed target contract",
+        copy: "Every session forwards only to the contract you pin up front.",
+        panelClass: "theme-subtle-panel",
+    },
+    {
+        label: "Sessions",
+        title: "Revocable bounded access",
+        copy: "Set expiry, per-transaction caps, and total budget limits, then revoke anytime.",
+        panelClass: "theme-panel",
+    },
+    {
+        label: "Safety",
+        title: "Strict deterministic mode",
+        copy: "Run in opcode-only mode or require an exact body hash for pre-approved payload execution.",
+        panelClass: "theme-accent-panel",
+    },
+] as const;
+
 export default function Home() {
     return (
         <main className="app-shell">
             <section className="page-frame justify-center">
-                <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-                    <div className="hero-panel p-8 text-left sm:p-10 lg:p-12">
-                        <div className="page-badge w-fit">
-                            AgentGuard v0.1 · TON execution guard
-                        </div>
-                        <p className="theme-kicker mt-8">On-chain execution guard</p>
-                        <h1 className="mt-4 max-w-4xl text-5xl font-semibold tracking-tight sm:text-7xl">
-                            Bounded delegation
-                            <span className="block text-[var(--accent-strong)]">
-                                for TON agents
-                            </span>
-                        </h1>
+                <div className="hero-panel mx-auto mt-6 w-full max-w-6xl p-8 text-left sm:mt-8 sm:p-10 lg:p-12">
+                    <div className="page-badge w-fit">
+                        AGENTGUARD V0.1 · TON EXECUTION GUARD
+                    </div>
+                    <p className="theme-kicker mt-8">ON-CHAIN EXECUTION GUARD</p>
+                    <h1 className="mt-4 max-w-5xl text-5xl font-semibold tracking-tight sm:text-7xl">
+                        Bounded delegation for TON agents
+                    </h1>
 
-                        <p className="theme-copy mt-6 max-w-2xl text-base leading-8 sm:text-lg">
-                            AgentGuard provides bounded delegation through fixed
-                            target, opcode, spend, expiry, and nonce controls.
-                            Strict exact-body-hash enforcement turns broad method
-                            authorization into deterministic action authorization.
-                        </p>
+                    <p className="theme-copy mt-6 max-w-3xl text-base leading-8 sm:text-lg">
+                        AgentGuard lets owners create bounded on-chain execution
+                        sessions with fixed target, opcode, spend, expiry,
+                        nonce, and optional exact-body-hash authorization.
+                    </p>
 
-                        <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row">
-                            <Link
-                                href="/create-guard"
-                                className="theme-primary-button rounded-2xl px-6 py-3 text-sm"
-                            >
-                                Create Guard
-                            </Link>
+                    <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row">
+                        <a
+                            href="https://github.com/farzaamam/ton-agent-guard#readme"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="theme-secondary-button rounded-2xl px-6 py-3 text-sm"
+                        >
+                            View Docs
+                        </a>
 
-                            <a
-                                href="https://github.com/farzaamam/ton-agent-guard#readme"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="theme-secondary-button rounded-2xl px-6 py-3 text-sm"
-                            >
-                                View Docs
-                            </a>
-                        </div>
+                        <Link
+                            href="/create-guard"
+                            className="theme-primary-button rounded-2xl px-6 py-3 text-sm"
+                        >
+                            Create Guard
+                        </Link>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="theme-accent-panel p-6">
-                            <p className="theme-label">Execution envelope</p>
-                            <h2 className="mt-4 text-3xl font-semibold">
-                                One guard, revocable sessions, capped spend.
-                            </h2>
-                            <p className="theme-copy mt-3 text-sm leading-6">
-                                The owner defines explicit on-chain boundaries
-                                instead of handing an agent ambient wallet
-                                authority. AgentGuard acts as an execution
-                                firewall by default and enables deterministic
-                                action authorization in strict mode.
-                            </p>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                            <div className="theme-subtle-panel p-5">
-                                <p className="theme-label">Routing</p>
-                                <p className="mt-3 text-lg font-semibold">
-                                    Fixed target contract
-                                </p>
-                                <p className="theme-copy mt-2 text-sm leading-6">
-                                    Every session forwards only to the contract you
-                                    pin up front.
-                                </p>
-                            </div>
-
-                            <div className="theme-subtle-panel p-5">
-                                <p className="theme-label">Safety</p>
-                                <p className="mt-3 text-lg font-semibold">
-                                    Two policy modes
-                                </p>
-                                <p className="theme-copy mt-2 text-sm leading-6">
-                                    Run sessions in opcode-only mode or pin an
-                                    exact bodyHash. Strict exact-body-hash mode
-                                    still keeps opcode validation.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    <p className="theme-copy mt-6 max-w-3xl text-sm leading-7 sm:text-base">
+                        Execution firewall by default. Deterministic action
+                        authorization in strict mode.
+                    </p>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-3">
-                    <div className="theme-panel p-6 text-left">
-                        <p className="theme-label">Sessions</p>
-                        <h2 className="mt-3 text-2xl font-semibold">
-                            Delegated access
-                        </h2>
-                        <p className="theme-copy mt-3 text-sm leading-6">
-                            Create agent sessions with expiry, per-tx caps, and total
-                            budget limits.
-                        </p>
-                    </div>
-
-                    <div className="theme-panel p-6 text-left">
-                        <p className="theme-label">Policy</p>
-                        <h2 className="mt-3 text-2xl font-semibold">
-                            Deterministic action authorization
-                        </h2>
-                        <p className="theme-copy mt-3 text-sm leading-6">
-                            Pin each session to one destination contract, one
-                            opcode, and optionally one exact bodyHash for
-                            pre-approved payload execution.
-                        </p>
-                    </div>
-
-                    <div className="theme-panel p-6 text-left">
-                        <p className="theme-label">Control</p>
-                        <h2 className="mt-3 text-2xl font-semibold">
-                            Revoke anytime
-                        </h2>
-                        <p className="theme-copy mt-3 text-sm leading-6">
-                            Kill sessions instantly and keep owner control over the
-                            funded guard.
-                        </p>
-                    </div>
+                <div className="mx-auto grid w-full max-w-6xl gap-4 md:grid-cols-3">
+                    {landingHighlights.map((item) => (
+                        <div
+                            key={item.label}
+                            className={`${item.panelClass} flex min-h-56 flex-col p-5 text-left`}
+                        >
+                            <p className="theme-label">{item.label}</p>
+                            <h2 className="mt-3 text-xl font-semibold">
+                                {item.title}
+                            </h2>
+                            <p className="theme-copy mt-3 text-sm leading-6">
+                                {item.copy}
+                            </p>
+                        </div>
+                    ))}
                 </div>
             </section>
         </main>
