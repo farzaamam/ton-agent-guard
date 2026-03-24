@@ -14,6 +14,10 @@ type SessionsCardProps = {
     guardAddress: string;
     nextSessionId: string | null;
     sessions: GuardSessionSummary[];
+    sessionReadLimit: number;
+    sessionsTruncated: boolean;
+    visibleSessionStartId: string | null;
+    visibleSessionEndId: string | null;
     isWalletConnected: boolean;
     isOwnerConnected: boolean;
     isGuardActive: boolean;
@@ -75,6 +79,31 @@ function formatOpcode(opcode: string) {
     }
 }
 
+function isExactBodyHashPolicy(session: GuardSessionSummary) {
+    try {
+        return BigInt(session.policyMode) === 1n;
+    } catch {
+        return false;
+    }
+}
+
+function formatBodyHash(bodyHash: string, options?: { short?: boolean }) {
+    try {
+        const normalized = `0x${BigInt(bodyHash)
+            .toString(16)
+            .toUpperCase()
+            .padStart(64, "0")}`;
+
+        if (!options?.short || normalized.length <= 24) {
+            return normalized;
+        }
+
+        return `${normalized.slice(0, 12)}...${normalized.slice(-8)}`;
+    } catch {
+        return "Unavailable";
+    }
+}
+
 function formatExpiry(expiry: string) {
     try {
         const date = new Date(Number(BigInt(expiry)) * 1000);
@@ -125,6 +154,8 @@ function SessionRow({
     feedback?: RevokeSessionFeedback;
 }) {
     const status = getSessionStatus(session);
+    const isStrictPolicy = isExactBodyHashPolicy(session);
+    const policyLabel = isStrictPolicy ? "Exact-body-hash" : "Opcode-only";
 
     return (
         <div className="theme-subtle-panel p-4">
@@ -174,7 +205,8 @@ function SessionRow({
                 </div>
 
                 <div>
-                    <p className="theme-label">Usage</p>
+                    <p className="theme-label">Policy / usage</p>
+                    <p className="theme-value mt-2 text-sm">{policyLabel}</p>
                     <p className="theme-value mt-2 text-sm">
                         Spent{" "}
                         {formatTonValue(session.spentTotal, {
@@ -185,6 +217,16 @@ function SessionRow({
                     <p className="theme-hint mt-2 text-xs leading-5">
                         Op {formatOpcode(session.allowedOp)}
                         {" · "}
+                        {isStrictPolicy
+                            ? `Hash ${formatBodyHash(session.bodyHash, { short: true })}`
+                            : "Any payload with the allowed opcode"}
+                    </p>
+                    <p
+                        className="theme-hint mt-2 text-xs leading-5"
+                        title={
+                            isStrictPolicy ? formatBodyHash(session.bodyHash) : undefined
+                        }
+                    >
                         Locked{" "}
                         {formatTonValue(session.lockedAmount, {
                             placeholder: "Unavailable",
@@ -233,6 +275,10 @@ export function SessionsCard({
     guardAddress,
     nextSessionId,
     sessions,
+    sessionReadLimit,
+    sessionsTruncated,
+    visibleSessionStartId,
+    visibleSessionEndId,
     isWalletConnected,
     isOwnerConnected,
     isGuardActive,
@@ -376,9 +422,11 @@ export function SessionsCard({
                     <p className="theme-kicker">Sessions</p>
                     <h2 className="mt-3 text-2xl font-semibold">Session management</h2>
                     <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
-                        Review each session row, its budget, expiry, current usage,
-                        and lifecycle state. Each session is pinned to a single
-                        target contract and one allowed message opcode.
+                        Review each session row, its policy mode, budget, expiry,
+                        current usage, and lifecycle state. Every session is pinned
+                        to one target contract and enforces either opcode-only or
+                        exact-body-hash matching. The dashboard reads a bounded
+                        recent window so refresh cost stays stable as history grows.
                     </p>
                 </div>
 
@@ -403,16 +451,31 @@ export function SessionsCard({
                 <div className="theme-subtle-panel mt-6 p-5">
                     <p className="theme-value text-sm">No sessions created yet.</p>
                     <p className="theme-copy mt-2 text-sm leading-6">
-                        Create the first session to start managing agent budgets and
-                        expiry windows from this dashboard.
+                        Create the first session to start managing agent budgets,
+                        expiry windows, and opcode-only or exact-body-hash
+                        authorization from this dashboard.
                     </p>
                 </div>
             ) : (
                 <div className="mt-6 space-y-3">
                     <div className="theme-subtle-panel px-4 py-3 text-xs uppercase tracking-wide text-[var(--muted)]">
-                        Showing {sessions.length} of {createdSessionCount.toString()} session
-                        {createdSessionCount === 1n ? "" : "s"}
+                        {sessionsTruncated && visibleSessionStartId && visibleSessionEndId
+                            ? `Showing latest ${sessions.length} of ${createdSessionCount.toString()} sessions (#${visibleSessionStartId}–#${visibleSessionEndId})`
+                            : `Showing ${sessions.length} of ${createdSessionCount.toString()} session${createdSessionCount === 1n ? "" : "s"}`}
                     </div>
+
+                    {sessionsTruncated ? (
+                        <div className="theme-subtle-panel px-4 py-3">
+                            <p className="theme-value text-sm">
+                                Older sessions are not loaded in the default dashboard read.
+                            </p>
+                            <p className="theme-copy mt-2 text-sm leading-6">
+                                This view is capped to the latest {sessionReadLimit} sessions
+                                to avoid one getter call per historical session on every
+                                refresh.
+                            </p>
+                        </div>
+                    ) : null}
 
                     {sessions.map((session) => (
                         <SessionRow

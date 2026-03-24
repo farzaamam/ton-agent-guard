@@ -20,7 +20,8 @@ export default function Home() {
                         <p className="theme-copy mt-6 max-w-2xl text-base leading-8 sm:text-lg">
                             AgentGuard lets you create revocable, time-limited sessions
                             for AI agents with spend caps, expiry, nonce protection,
-                            fixed target routing, and opcode-gated execution.
+                            fixed target routing, and either opcode-only or
+                            exact-body-hash execution control.
                         </p>
 
                         <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row">
@@ -49,7 +50,8 @@ export default function Home() {
                             <p className="theme-copy mt-3 text-sm leading-6">
                                 The model gets explicit operating boundaries instead
                                 of ambient wallet access, so owner intent stays
-                                enforced onchain.
+                                enforced onchain as an execution firewall by default
+                                and a deterministic authorizer in strict mode.
                             </p>
                         </div>
 
@@ -68,11 +70,12 @@ export default function Home() {
                             <div className="theme-subtle-panel p-5">
                                 <p className="theme-label">Safety</p>
                                 <p className="mt-3 text-lg font-semibold">
-                                    Opcode-gated calls
+                                    Two policy modes
                                 </p>
                                 <p className="theme-copy mt-2 text-sm leading-6">
-                                    Message bodies must match the allowed opcode
-                                    before execution.
+                                    Run sessions in opcode-only mode or require an
+                                    exact body hash. Strict mode still keeps opcode
+                                    validation.
                                 </p>
                             </div>
                         </div>
@@ -94,11 +97,12 @@ export default function Home() {
                     <div className="theme-panel p-6 text-left">
                         <p className="theme-label">Policy</p>
                         <h2 className="mt-3 text-2xl font-semibold">
-                            Deterministic routing
+                            Deterministic authorization
                         </h2>
                         <p className="theme-copy mt-3 text-sm leading-6">
-                            Pin each session to one destination contract and one
-                            allowed message opcode for tighter execution control.
+                            Pin each session to one destination contract, one
+                            opcode, and optionally one exact body hash for
+                            pre-approved payload execution.
                         </p>
                     </div>
 

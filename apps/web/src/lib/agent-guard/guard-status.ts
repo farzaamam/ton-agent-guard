@@ -3,6 +3,8 @@ export type GuardSessionSummary = {
     agent: string;
     target: string;
     allowedOp: string;
+    policyMode: string;
+    bodyHash: string;
     expiry: string;
     maxTotal: string;
     maxPerTx: string;
@@ -20,5 +22,9 @@ export type GuardStatusResponse = {
     reservedBalance: string | null;
     availableBalance: string | null;
     nextSessionId: string | null;
+    sessionReadLimit: number;
+    sessionsTruncated: boolean;
+    visibleSessionStartId: string | null;
+    visibleSessionEndId: string | null;
     sessions: GuardSessionSummary[];
 };

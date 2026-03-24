@@ -11,6 +11,8 @@ import type {
 } from "@/lib/agent-guard/guard-status";
 import { getTonClient } from "@/lib/ton/get-ton-client";
 
+const DASHBOARD_SESSION_READ_LIMIT = 24;
+
 function isRateLimitedError(error: unknown) {
     if (!error || typeof error !== "object") {
         return false;
@@ -48,20 +50,42 @@ async function readSessionSummaries(
         getGetSession: (sessionId: bigint) => Promise<SessionView>;
     },
     nextSessionId: string | null
-) {
+): Promise<{
+    sessions: GuardSessionSummary[];
+    sessionsTruncated: boolean;
+    visibleSessionStartId: string | null;
+    visibleSessionEndId: string | null;
+}> {
     if (!nextSessionId) {
-        return [];
+        return {
+            sessions: [],
+            sessionsTruncated: false,
+            visibleSessionStartId: null,
+            visibleSessionEndId: null,
+        };
     }
 
     const parsedNextSessionId = BigInt(nextSessionId);
 
     if (parsedNextSessionId <= 1n) {
-        return [];
+        return {
+            sessions: [],
+            sessionsTruncated: false,
+            visibleSessionStartId: null,
+            visibleSessionEndId: null,
+        };
     }
 
+    const createdSessionCount = parsedNextSessionId - 1n;
+    const boundedWindowSize = BigInt(DASHBOARD_SESSION_READ_LIMIT);
+    const startSessionId =
+        createdSessionCount > boundedWindowSize
+            ? parsedNextSessionId - boundedWindowSize
+            : 1n;
+    const endSessionId = parsedNextSessionId - 1n;
     const sessions: GuardSessionSummary[] = [];
 
-    for (let sessionId = 1n; sessionId < parsedNextSessionId; sessionId += 1n) {
+    for (let sessionId = startSessionId; sessionId <= endSessionId; sessionId += 1n) {
         try {
             const session = await agentGuard.getGetSession(sessionId);
 
@@ -70,6 +94,8 @@ async function readSessionSummaries(
                 agent: session.agent.toString(),
                 target: session.target.toString(),
                 allowedOp: session.allowedOp.toString(),
+                policyMode: session.policyMode.toString(),
+                bodyHash: session.bodyHash.toString(),
                 expiry: session.expiry.toString(),
                 maxTotal: session.maxTotal.toString(),
                 maxPerTx: session.maxPerTx.toString(),
@@ -83,7 +109,12 @@ async function readSessionSummaries(
         }
     }
 
-    return sessions;
+    return {
+        sessions,
+        sessionsTruncated: createdSessionCount > boundedWindowSize,
+        visibleSessionStartId: startSessionId.toString(),
+        visibleSessionEndId: endSessionId.toString(),
+    };
 }
 
 export async function readGuardStatus(addressInput: string): Promise<GuardStatusResponse> {
@@ -97,6 +128,9 @@ export async function readGuardStatus(addressInput: string): Promise<GuardStatus
         let reservedBalance: string | null = null;
         let availableBalance: string | null = null;
         let sessions: GuardSessionSummary[] = [];
+        let sessionsTruncated = false;
+        let visibleSessionStartId: string | null = null;
+        let visibleSessionEndId: string | null = null;
 
         if (state === "active") {
             const agentGuard = tonClient.open(AgentGuard.fromAddress(address));
@@ -112,7 +146,14 @@ export async function readGuardStatus(addressInput: string): Promise<GuardStatus
                     : await readOptionalGetter(() =>
                           agentGuard.getGetAvailableBalance()
                       );
-            sessions = await readSessionSummaries(agentGuard, nextSessionId);
+            const sessionReadResult = await readSessionSummaries(
+                agentGuard,
+                nextSessionId
+            );
+            sessions = sessionReadResult.sessions;
+            sessionsTruncated = sessionReadResult.sessionsTruncated;
+            visibleSessionStartId = sessionReadResult.visibleSessionStartId;
+            visibleSessionEndId = sessionReadResult.visibleSessionEndId;
         }
 
         return {
@@ -123,6 +164,10 @@ export async function readGuardStatus(addressInput: string): Promise<GuardStatus
             reservedBalance,
             availableBalance,
             nextSessionId,
+            sessionReadLimit: DASHBOARD_SESSION_READ_LIMIT,
+            sessionsTruncated,
+            visibleSessionStartId,
+            visibleSessionEndId,
             sessions,
         };
     } catch (error) {

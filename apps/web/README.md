@@ -1,52 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AgentGuard Web App
 
-## Getting Started
+Next.js dashboard for deploying, funding, and operating `AgentGuard` contracts.
 
-First, run the development server:
+The app is operator-facing:
+
+- open or create the deterministic guard for a wallet
+- inspect onchain guard status
+- fund and withdraw guard balances
+- create opcode-only or exact-body-hash sessions
+- review and revoke recent sessions
+
+## Local Setup
+
+From the repository root:
+
+```bash
+npm install
+cd apps/web
+cp .env.example .env.local
+```
+
+Set the environment variables you need in `apps/web/.env.local`.
+
+Run the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The dashboard is available at [http://localhost:3000](http://localhost:3000).
 
 ## Environment
 
-Create `apps/web/.env.local` from `apps/web/.env.example` and set:
+`apps/web/.env.example` includes the supported variables:
 
 ```bash
-TONCENTER_API_KEY=your_toncenter_api_key
-```
-
-Optional:
-
-```bash
+TONCENTER_API_KEY=
 TONCENTER_RPC_ENDPOINT=https://testnet.toncenter.com/api/v2/jsonRPC
 ```
 
-The dashboard's server-side TON client uses `TONCENTER_API_KEY` automatically for guard status reads.
+Notes:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `TONCENTER_API_KEY` is optional, but recommended. Without it, guard status reads are more likely to hit RPC rate limits.
+- `TONCENTER_RPC_ENDPOINT` defaults to the testnet Toncenter JSON-RPC endpoint if omitted.
+- These variables are used on the server side for dashboard reads in `src/lib/ton/get-ton-client.ts`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Useful Scripts
 
-## Learn More
+Run from `apps/web`:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run dev
+npm run lint
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Current UI Scope
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The web app matches the current contract surface. Session creation supports:
 
-## Deploy on Vercel
+- `policyMode = 0` for opcode-only sessions
+- `policyMode = 1` for exact-body-hash sessions
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The dashboard shows a bounded recent session window instead of reading every historical session on each refresh.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+
+- This is an operations UI, not a generic TON explorer.
+- Session reads depend on RPC availability and may degrade under provider rate limiting.
+- The default RPC endpoint is testnet-oriented. Point `TONCENTER_RPC_ENDPOINT` elsewhere if you are targeting a different network.

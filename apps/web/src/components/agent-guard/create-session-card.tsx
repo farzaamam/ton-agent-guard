@@ -37,6 +37,8 @@ type CreateSessionFormValues = {
     maxPerTx: string;
     target: string;
     allowedOp: string;
+    policyMode: string;
+    bodyHash: string;
 };
 
 type CreateSessionField = keyof CreateSessionFormValues;
@@ -50,12 +52,14 @@ type PreparedCreateSessionRequest = {
     maxPerTx: string;
     target: string;
     allowedOp: string;
+    policyMode: string;
+    bodyHash: string;
 };
 
 const CREATE_SESSION_TRANSACTION_VALUE = toNano("0.1").toString();
 const CREATE_SESSION_SAFETY_BUFFER = toNano("0.02");
 const CREATE_SESSION_POLICY_MODE_OPCODE_ONLY = 0n;
-const CREATE_SESSION_BODY_HASH_DISABLED = 0n;
+const CREATE_SESSION_POLICY_MODE_EXACT_BODY_HASH = 1n;
 
 const statusToneClasses: Record<CreateSessionState, string> = {
     idle: "theme-status-neutral",
@@ -113,6 +117,8 @@ function getInitialFormValues(): CreateSessionFormValues {
         maxPerTx: "",
         target: "",
         allowedOp: "",
+        policyMode: CREATE_SESSION_POLICY_MODE_OPCODE_ONLY.toString(),
+        bodyHash: "",
     };
 }
 
@@ -130,12 +136,16 @@ function validateCreateSessionForm(
     let maxTotal: bigint | null = null;
     let maxPerTx: bigint | null = null;
     let allowedOp: bigint | null = null;
+    let policyMode: bigint | null = null;
+    let bodyHash: bigint | null = null;
 
     const agentValue = values.agent.trim();
     const targetValue = values.target.trim();
     const maxTotalValue = values.maxTotal.trim();
     const maxPerTxValue = values.maxPerTx.trim();
     const allowedOpValue = values.allowedOp.trim();
+    const policyModeValue = values.policyMode.trim();
+    const bodyHashValue = values.bodyHash.trim();
     const expiryValue = values.expiry.trim();
 
     try {
@@ -204,6 +214,33 @@ function validateCreateSessionForm(
         }
     }
 
+    if (policyModeValue === CREATE_SESSION_POLICY_MODE_OPCODE_ONLY.toString()) {
+        policyMode = CREATE_SESSION_POLICY_MODE_OPCODE_ONLY;
+        bodyHash = 0n;
+    } else if (
+        policyModeValue === CREATE_SESSION_POLICY_MODE_EXACT_BODY_HASH.toString()
+    ) {
+        policyMode = CREATE_SESSION_POLICY_MODE_EXACT_BODY_HASH;
+
+        if (!bodyHashValue) {
+            errors.bodyHash =
+                "Enter the exact body hash required for exact-body-hash mode.";
+        } else {
+            try {
+                bodyHash = BigInt(bodyHashValue);
+
+                if (bodyHash <= 0n) {
+                    errors.bodyHash = "Body hash must be greater than zero.";
+                }
+            } catch {
+                errors.bodyHash =
+                    "Enter a valid body hash like 0x1234... or a decimal bigint.";
+            }
+        }
+    } else {
+        errors.policyMode = "Choose opcode-only or exact-body-hash mode.";
+    }
+
     if (agent && target && agent.equals(target)) {
         errors.target = "Target must be different from the agent address.";
     }
@@ -232,6 +269,8 @@ function validateCreateSessionForm(
             maxPerTx: maxPerTx!.toString(),
             target: target!.toString(),
             allowedOp: allowedOp!.toString(),
+            policyMode: policyMode!.toString(),
+            bodyHash: bodyHash!.toString(),
         },
     };
 }
@@ -244,8 +283,8 @@ function prepareCreateSessionPayload(input: PreparedCreateSessionRequest) {
                 agent: Address.parse(input.agent),
                 target: Address.parse(input.target),
                 allowedOp: BigInt(input.allowedOp),
-                policyMode: CREATE_SESSION_POLICY_MODE_OPCODE_ONLY,
-                bodyHash: CREATE_SESSION_BODY_HASH_DISABLED,
+                policyMode: BigInt(input.policyMode),
+                bodyHash: BigInt(input.bodyHash),
                 expiry: BigInt(input.expiry),
                 maxTotal: BigInt(input.maxTotal),
                 maxPerTx: BigInt(input.maxPerTx),
@@ -328,6 +367,9 @@ export function CreateSessionCard({
         useState<CreateSessionState>("idle");
     const [statusText, setStatusText] = useState("");
     const safeSessionMaxTotal = getSafeSessionMaxTotal(availableBalance);
+    const isStrictPolicySelected =
+        formValues.policyMode ===
+        CREATE_SESSION_POLICY_MODE_EXACT_BODY_HASH.toString();
 
     const isBusy =
         submissionState === "validating" ||
@@ -352,7 +394,7 @@ export function CreateSessionCard({
             ? "Only the wallet that resolves to this AgentGuard can create sessions."
           : !isGuardActive
             ? "This AgentGuard must be active before sessions can be created."
-            : "Each session is pinned to one target contract and one allowed message opcode. Leave a small balance buffer when setting max total.";
+            : "Each session is pinned to one target contract, one allowed message opcode, and either opcode-only or exact-body-hash policy. Leave a small balance buffer when setting max total.";
 
     const updateField = (field: CreateSessionField, value: string) => {
         if (
@@ -395,7 +437,7 @@ export function CreateSessionCard({
         }
 
         setSubmissionState("validating");
-        setStatusText("Checking session parameters...");
+        setStatusText("Checking session parameters and policy mode...");
 
         const validation = validateCreateSessionForm(formValues, guardAddress);
 
@@ -505,8 +547,46 @@ export function CreateSessionCard({
             </h2>
             <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                 Assign an agent, set expiry and spend caps, then pin the session to
-                one execution target and one allowed body opcode.
+                one execution target plus either opcode-only or exact-body-hash
+                authorization.
             </p>
+
+            <div className="theme-subtle-panel mt-6 p-4">
+                <p className="theme-label">Policy mode</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                    <button
+                        type="button"
+                        onClick={() => updateField("policyMode", "0")}
+                        disabled={isBusy}
+                        className={`theme-pill-button rounded-full px-4 py-2 text-sm ${
+                            !isStrictPolicySelected ? "theme-pill-button-active" : ""
+                        }`}
+                    >
+                        Opcode-only
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => updateField("policyMode", "1")}
+                        disabled={isBusy}
+                        className={`theme-pill-button rounded-full px-4 py-2 text-sm ${
+                            isStrictPolicySelected ? "theme-pill-button-active" : ""
+                        }`}
+                    >
+                        Exact-body-hash
+                    </button>
+                </div>
+                {fieldErrors.policyMode ? (
+                    <p className="theme-error mt-3 text-xs leading-5">
+                        {fieldErrors.policyMode}
+                    </p>
+                ) : (
+                    <p className="theme-hint mt-3 text-xs leading-5">
+                        {isStrictPolicySelected
+                            ? "Strict mode still keeps opcode validation and also requires the exact body hash."
+                            : "Opcode-only mode accepts any payload whose first 32 bits match the allowed opcode."}
+                    </p>
+                )}
+            </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <SessionField
@@ -572,6 +652,21 @@ export function CreateSessionCard({
                     error={fieldErrors.target}
                 />
             </div>
+
+            {isStrictPolicySelected ? (
+                <div className="mt-4">
+                    <SessionField
+                        id="session-body-hash"
+                        label="Exact body hash"
+                        placeholder="0xA1B2... or 741635..."
+                        value={formValues.bodyHash}
+                        onChange={(value) => updateField("bodyHash", value)}
+                        disabled={isBusy}
+                        hint="Use the exact hash of the message body to authorize one pre-approved payload."
+                        error={fieldErrors.bodyHash}
+                    />
+                </div>
+            ) : null}
 
             <div className="theme-subtle-panel mt-4 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

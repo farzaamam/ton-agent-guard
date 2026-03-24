@@ -484,7 +484,8 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                         <p className="theme-copy mt-3 max-w-2xl text-sm leading-6">
                             Operate a deployed guard, review its onchain state, fund
                             it, withdraw unlocked balance back to the owner, and
-                            create owner-controlled sessions.
+                            create owner-controlled opcode-only or exact-body-hash
+                            sessions.
                         </p>
                     </div>
 
@@ -547,14 +548,18 @@ export function GuardDashboard({ address }: GuardDashboardProps) {
                 </section>
             ) : (
                 <>
-                    <SessionsCard
-                        guardAddress={guardStatus.address}
-                        nextSessionId={guardStatus.nextSessionId}
-                        sessions={guardStatus.sessions}
-                        isWalletConnected={isWalletConnected}
-                        isOwnerConnected={isOwnerConnected}
-                        isGuardActive={guardStatus.isDeployed}
-                        onOpenCreateSession={() => {
+            <SessionsCard
+                guardAddress={guardStatus.address}
+                nextSessionId={guardStatus.nextSessionId}
+                sessions={guardStatus.sessions}
+                sessionReadLimit={guardStatus.sessionReadLimit}
+                sessionsTruncated={guardStatus.sessionsTruncated}
+                visibleSessionStartId={guardStatus.visibleSessionStartId}
+                visibleSessionEndId={guardStatus.visibleSessionEndId}
+                isWalletConnected={isWalletConnected}
+                isOwnerConnected={isOwnerConnected}
+                isGuardActive={guardStatus.isDeployed}
+                onOpenCreateSession={() => {
                             setIsCreateSessionModalOpen(true);
                         }}
                         onSubmittedRevoke={handleRevokeSessionRefresh}

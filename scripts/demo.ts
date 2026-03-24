@@ -7,6 +7,8 @@ import {
 import { NetworkProvider } from "@ton/blueprint";
 
 const PING_OPCODE = BigInt(CounterReceiver.opcodes.Ping);
+const POLICY_MODE_OPCODE_ONLY = 0n;
+const BODY_HASH_DISABLED = 0n;
 
 export async function run(provider: NetworkProvider) {
     const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -44,7 +46,7 @@ export async function run(provider: NetworkProvider) {
     });
     await sleep(1500);
 
-    console.log("Creating single-target, single-op session...");
+    console.log("Creating opcode-only session...");
     await guard.send(
         owner,
         { value: toNano("0.1") },
@@ -53,6 +55,8 @@ export async function run(provider: NetworkProvider) {
             agent: agentAddress,
             target: counter.address,
             allowedOp: PING_OPCODE,
+            policyMode: POLICY_MODE_OPCODE_ONLY,
+            bodyHash: BODY_HASH_DISABLED,
             expiry: BigInt(Math.floor(Date.now() / 1000) + 3600),
             maxTotal: toNano("0.5"),
             maxPerTx: toNano("0.2"),
@@ -86,6 +90,8 @@ export async function run(provider: NetworkProvider) {
 
     console.log("Session target:", session.target.toString());
     console.log("Session allowedOp:", session.allowedOp.toString());
+    console.log("Session policyMode:", session.policyMode.toString());
+    console.log("Session bodyHash:", session.bodyHash.toString());
     console.log("Session spentTotal:", session.spentTotal.toString());
     console.log("Session nonceExpected:", session.nonceExpected.toString());
     console.log("Session lockedAmount:", session.lockedAmount.toString());
@@ -94,6 +100,6 @@ export async function run(provider: NetworkProvider) {
     console.log("Reserved total:", (await guard.getGetReservedTotal()).toString());
     console.log("Available balance:", (await guard.getGetAvailableBalance()).toString());
 
-    console.log("✅ Single-target, single-op session execution verified.");
+    console.log("✅ Opcode-only session execution verified.");
     console.log("✅ AgentGuard enforced session policy successfully.");
 }

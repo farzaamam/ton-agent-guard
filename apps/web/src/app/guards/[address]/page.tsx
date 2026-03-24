@@ -35,8 +35,9 @@ export default async function GuardPage({
                     </h1>
                     <p className="theme-copy mt-4 max-w-3xl text-base leading-8">
                         Review guard status, fund the guard, withdraw unlocked
-                        balance, create sessions, and operate the deterministic
-                        AgentGuard for the connected owner wallet.
+                        balance, create opcode-only or exact-body-hash sessions,
+                        and operate the deterministic AgentGuard for the connected
+                        owner wallet.
                     </p>
                 </section>
 
