@@ -18,11 +18,9 @@ Together, these pieces make AgentGuard not just a contract experiment, but a mor
 
 AgentGuard was selected as one of the winners of the **TON AI Agent Tooling Fast Grants**.
 
-According to the official announcement, **40 submissions** were received, the prize pool was expanded from **$10K to $14K**, and **14 builders** each received a **$1,000 grant**.
+In the official winners announcement, AgentGuard was listed under **Infrastructure & Security** as:
 
-AgentGuard was recognized in the **Agent SDKs & Tools** category as:
-
-> **AgentGuard by Farzam: on-chain wallet guardrails for agents**
+> **AgentGuard by Farzam — on-chain wallet guardrails for agents (spend limits, sessions, whitelists)**
 
 Official announcement: [TON AI Agent Tooling Fast Grants Winners](https://t.me/toncoin/2298)
 
