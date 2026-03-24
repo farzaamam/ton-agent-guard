@@ -6,7 +6,7 @@ AgentGuard is a TON-native guard contract that lets an owner delegate **bounded,
 
 It is designed for TON’s actor-based architecture and acts as an execution guardrail layer between agents and target contracts.
 
-By default, AgentGuard is best understood as an on-chain **execution firewall**. In strict mode, it can also act as a **deterministic action authorization** primitive for exact pre-approved payload execution.
+By default, AgentGuard is best understood as an on-chain **execution firewall**. In exact-body-hash mode, it can also act as a **deterministic action authorization** primitive for exact pre-approved payload execution.
 
 ---
 
@@ -95,11 +95,11 @@ AgentGuard currently supports two session policy modes:
   - session pins `agent`, `target`, `allowedOp`, and exact `bodyHash`
   - the executed message body must hash exactly to the stored `bodyHash`
 
-Strict mode still keeps opcode validation.
+Exact-body-hash mode still keeps opcode validation.
 
 It is not "body hash instead of opcode". It is **opcode + exact payload**.
 
-This makes the default mode an execution firewall and the strict mode a more deterministic action authorization path.
+This makes the default mode an execution firewall and the exact-body-hash mode a more deterministic action authorization path.
 
 ---
 
@@ -113,7 +113,7 @@ The agent can call that target method repeatedly within the session budget, as l
 
 ### Example B — exact-body-hash
 
-An owner pre-builds one exact internal message body, computes its `bodyHash`, and stores that hash in a strict session.
+An owner pre-builds one exact internal message body, computes its `bodyHash`, and stores that hash in an exact-body-hash session.
 
 The agent can execute only that exact pre-approved payload against the configured target. If any field inside the body changes, execution is rejected.
 
@@ -182,7 +182,7 @@ Responsibilities:
 - tracks expected nonce
 - enforces execution constraints
 - pins each session to one target contract, one allowed opcode, and a `policyMode`
-- optionally pins each strict session to one exact `bodyHash`
+- optionally pins each exact-body-hash session to one exact `bodyHash`
 - forwards validated internal messages
 - supports owner withdrawal of guard-held funds
 
@@ -218,7 +218,11 @@ The trust model is intentionally simple:
 
 A few implementation details matter:
 
-- Session budgets are **policy limits**, not reserved balances
+- Session budgets are **policy limits**, not isolated per-session balances
+- `getReservedTotal()` reports the current session-locked total only
+- `MIN_STORAGE_RESERVE` is a separate permanent floor for contract survival
+- `getAvailableBalance()` excludes both session-locked funds and `MIN_STORAGE_RESERVE`
+- outbound sends preserve both the session-locked total and `MIN_STORAGE_RESERVE`
 - Multiple sessions may exist at once, but funds are not isolated per session
 - Spend accounting is based on accepted guarded execution attempts
 - `policyMode = 0` is **target + opcode** permissioning
@@ -234,9 +238,17 @@ It does not yet express rules like:
 - any recipient from allowlist Y
 - field-level predicates over arbitrary payloads
 
-That means AgentGuard today is best understood as a **session-scoped execution firewall**, with strict mode available for **exact pre-approved payload execution**.
+That means AgentGuard today is best understood as a **session-scoped execution firewall**, with exact-body-hash mode available for **exact pre-approved payload execution**.
 
 ---
+
+## Build
+
+Build the contract with:
+
+```bash
+npx blueprint build AgentGuard
+```
 
 ## Testing
 

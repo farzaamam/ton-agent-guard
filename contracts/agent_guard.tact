@@ -54,6 +54,8 @@ message Withdraw {
     to: Address;
 }
 
+const MIN_STORAGE_RESERVE: Int = ton("0.05");
+
 contract AgentGuard {
     owner: Address;
     nextSessionId: Int = 1;
@@ -104,8 +106,24 @@ contract AgentGuard {
         return total;
     }
 
+    // Free balance excludes session-locked funds and the permanent storage floor.
+    fun availableContractBalanceWithIncomingValue(incomingValue: Int): Int {
+        let available =
+            myBalance() - incomingValue - self.totalLockedFunds() - MIN_STORAGE_RESERVE;
+        if (available > 0) {
+            return available;
+        }
+
+        return 0;
+    }
+
     fun availableContractBalance(): Int {
-        return myBalance() - context().value - self.totalLockedFunds();
+        return self.availableContractBalanceWithIncomingValue(context().value);
+    }
+
+    // Outbound sends preserve both session-locked funds and MIN_STORAGE_RESERVE.
+    fun outboundReserveTarget(): Int {
+        return self.totalLockedFunds() + MIN_STORAGE_RESERVE;
     }
 
     receive(msg: CreateSession) {
@@ -168,10 +186,7 @@ contract AgentGuard {
         require(msg.amount > 0, "BAD_AMOUNT");
         require(self.availableContractBalance() >= msg.amount, "INSUFFICIENT_AVAILABLE");
 
-        let lockedFunds = self.totalLockedFunds();
-        if (lockedFunds > 0) {
-            nativeReserve(lockedFunds, ReserveExact);
-        }
+        nativeReserve(self.outboundReserveTarget(), ReserveExact);
 
         message(MessageParameters{to: msg.to, value: msg.amount, bounce: false});
     }
@@ -204,10 +219,7 @@ contract AgentGuard {
         s.spentTotal += msg.value;
         self.sessions.set(msg.sessionId, s);
 
-        let lockedFunds = self.totalLockedFunds();
-        if (lockedFunds > 0) {
-            nativeReserve(lockedFunds, ReserveExact);
-        }
+        nativeReserve(self.outboundReserveTarget(), ReserveExact);
 
         message(MessageParameters{
             to: s.target,
@@ -225,12 +237,13 @@ contract AgentGuard {
         return self.nextSessionId;
     }
 
+    // Reports session-locked funds only; MIN_STORAGE_RESERVE is protected separately.
     get fun getReservedTotal(): Int {
         return self.totalLockedFunds();
     }
 
     get fun getAvailableBalance(): Int {
-        return myBalance() - self.totalLockedFunds();
+        return self.availableContractBalanceWithIncomingValue(0);
     }
 
     get fun getSession(sessionId: Int): SessionView {

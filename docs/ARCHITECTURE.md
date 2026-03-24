@@ -95,6 +95,17 @@ All enforcement happens on-chain inside the guard contract.
 
 ---
 
+## Balance Protection Model
+
+- session budgets are policy limits, not isolated per-session balances
+- active sessions still contribute to a session-locked total used to protect shared liquidity
+- `MIN_STORAGE_RESERVE` is a separate permanent floor for contract survival
+- available balance excludes both the session-locked total and `MIN_STORAGE_RESERVE`
+- outbound sends explicitly preserve both the session-locked total and `MIN_STORAGE_RESERVE`
+- `getReservedTotal()` reports only the session-locked total
+
+---
+
 ## Why This Fits TON
 
 TON uses an actor-based architecture where contracts communicate through asynchronous internal messages.
@@ -118,7 +129,7 @@ Exact-body-hash mode narrows this by allowing only one exact pre-approved payloa
 
 Other important limitations:
 
-- session budgets are policy limits, not reserved balances
+- session budgets are policy limits, not isolated per-session balances
 - multiple sessions may exist simultaneously without isolated liquidity
 - accepted execution attempts consume session quota
 - approval-based escalation is not yet implemented

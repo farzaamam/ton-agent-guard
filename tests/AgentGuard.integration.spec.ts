@@ -12,6 +12,7 @@ import "@ton/test-utils";
 
 const nowSec = (bc: Blockchain) => bc.now ?? Math.floor(Date.now() / 1000);
 const PING_OPCODE = BigInt(CounterReceiver.opcodes.Ping);
+const MIN_STORAGE_RESERVE = toNano("0.05");
 const cellHashInt = (cell: Cell) => BigInt(`0x${cell.hash().toString("hex")}`);
 
 describe("AgentGuard (integration)", () => {
@@ -96,6 +97,8 @@ describe("AgentGuard (integration)", () => {
             .storeUint(0xdeadbeef, 32)
             .storeUint(0, 1)
             .endCell();
+
+    const guardBalance = async () => (await blockchain.getContract(guard.address)).balance;
 
     const createDefaultSession = async (
         expiry?: bigint,
@@ -341,6 +344,36 @@ describe("AgentGuard (integration)", () => {
             to: guard.address,
             success: false,
         });
+    });
+
+    it("fails to create a session when maxTotal would consume the storage reserve", async () => {
+        const maxTotal = (await guardBalance()) - MIN_STORAGE_RESERVE + 1n;
+
+        const res = await guard.send(
+            owner.getSender(),
+            { value: toNano("0.1") },
+            {
+                $$type: "CreateSession",
+                agent: agent.address,
+                target: counter.address,
+                allowedOp: PING_OPCODE,
+                policyMode: 0n,
+                bodyHash: 0n,
+                expiry: BigInt(nowSec(blockchain) + 3600),
+                maxTotal,
+                maxPerTx: maxTotal,
+            }
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.INSUFFICIENT_AVAILABLE,
+        });
+
+        expect(await guard.getGetNextSessionId()).toBe(1n);
+        expect(await guard.getGetReservedTotal()).toBe(0n);
     });
 
     it("fails when agent matches guard address", async () => {
@@ -728,6 +761,9 @@ describe("AgentGuard (integration)", () => {
         expect((await guard.getGetOwner()).toString()).toBe(owner.address.toString());
         expect(await guard.getGetNextSessionId()).toBe(2n);
         expect(await guard.getGetReservedTotal()).toBe(toNano("0.5"));
+        expect(await guard.getGetAvailableBalance()).toBe(
+            (await guardBalance()) - toNano("0.5") - MIN_STORAGE_RESERVE
+        );
 
         const createdSession = await guard.getGetSession(1n);
         expect(createdSession.agent.toString()).toBe(agent.address.toString());
@@ -762,6 +798,12 @@ describe("AgentGuard (integration)", () => {
         });
 
         expect(await guard.getGetReservedTotal()).toBe(toNano("0.45"));
+        expect(await guard.getGetAvailableBalance()).toBe(
+            (await guardBalance()) - toNano("0.45") - MIN_STORAGE_RESERVE
+        );
+        expect(await guardBalance()).toBeGreaterThanOrEqual(
+            (await guard.getGetReservedTotal()) + MIN_STORAGE_RESERVE
+        );
 
         const updatedSession = await guard.getGetSession(1n);
         expect(updatedSession.target.toString()).toBe(counter.address.toString());
@@ -858,6 +900,90 @@ describe("AgentGuard (integration)", () => {
 
         const after = await owner.getBalance();
         expect(after > before).toBe(true);
+    });
+
+    it("withdraw cannot consume the storage reserve", async () => {
+        const blockedAmount = (await guardBalance()) - MIN_STORAGE_RESERVE + 1n;
+
+        const res = await guard.send(
+            owner.getSender(),
+            { value: toNano("0.05") },
+            {
+                $$type: "Withdraw",
+                amount: blockedAmount,
+                to: owner.address,
+            }
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: false,
+            exitCode: AgentGuard_errors_backward.INSUFFICIENT_AVAILABLE,
+        });
+    });
+
+    it("withdraw while a session is active preserves locked funds and the storage reserve", async () => {
+        await createDefaultSession();
+
+        const lockedBalance = await guard.getGetReservedTotal();
+        const available = await guard.getGetAvailableBalance();
+
+        const res = await guard.send(
+            owner.getSender(),
+            { value: toNano("0.05") },
+            {
+                $$type: "Withdraw",
+                amount: available,
+                to: owner.address,
+            }
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: true,
+        });
+
+        expect(res.transactions).toHaveTransaction({
+            from: guard.address,
+            to: owner.address,
+            success: true,
+        });
+
+        expect(await guardBalance()).toBeGreaterThanOrEqual(
+            lockedBalance + MIN_STORAGE_RESERVE
+        );
+    });
+
+    it("withdraw of only the truly available amount succeeds while preserving the reserve", async () => {
+        const available = await guard.getGetAvailableBalance();
+
+        expect(available).toBe((await guardBalance()) - MIN_STORAGE_RESERVE);
+
+        const res = await guard.send(
+            owner.getSender(),
+            { value: toNano("0.05") },
+            {
+                $$type: "Withdraw",
+                amount: available,
+                to: owner.address,
+            }
+        );
+
+        expect(res.transactions).toHaveTransaction({
+            from: owner.address,
+            to: guard.address,
+            success: true,
+        });
+
+        expect(res.transactions).toHaveTransaction({
+            from: guard.address,
+            to: owner.address,
+            success: true,
+        });
+
+        expect((await guardBalance()) >= MIN_STORAGE_RESERVE).toBe(true);
     });
 
     it("fails when owner withdraws to guard address", async () => {

@@ -32,7 +32,7 @@ For exact-body-hash sessions, this means target + allowed opcode + exact `bodyHa
 ### Unauthorized execution sender
 Only the agent address assigned to the session can execute through that session.
 
-### Payload mutation in strict sessions
+### Payload mutation in exact-body-hash sessions
 Exact-body-hash sessions additionally reject execution if the forwarded body differs from the pre-approved body, even when the opcode still matches.
 
 ---
@@ -55,10 +55,10 @@ It does not currently express rules such as:
 - field-level predicates over arbitrary payloads
 
 ### Owner mistakes
-If the owner configures the wrong target, opcode, or strict `bodyHash`, AgentGuard will still enforce that incorrect policy exactly as configured.
+If the owner configures the wrong target, opcode, or `bodyHash`, AgentGuard will still enforce that incorrect policy exactly as configured.
 
 ### Liquidity isolation across sessions
-Session budgets are not backed by reserved balances. Multiple sessions may depend on the same contract-held funds.
+Session budgets are not backed by isolated per-session balances. Multiple sessions may depend on the same contract-held funds.
 
 ### Rich approval workflows
 AgentGuard does not yet support “require approval” or multi-step escalation flows. The current outcomes are effectively allow or reject.
@@ -80,6 +80,11 @@ The current model assumes:
 
 ### Session budget is a policy limit
 `maxTotal` defines the maximum permitted spend for a session, not funds reserved exclusively for that session.
+
+### Session-locked funds and storage reserve are distinct
+The contract tracks a session-locked total for active sessions and a separate permanent `MIN_STORAGE_RESERVE`.
+
+`getReservedTotal()` reports only the session-locked total. `getAvailableBalance()` excludes both the session-locked total and `MIN_STORAGE_RESERVE`.
 
 ### Spend is consumed on accepted execution attempts
 Once an execution request passes guard checks and is forwarded, session spend and nonce advance. This is true even if downstream behavior is not economically useful.
@@ -108,4 +113,4 @@ It significantly reduces delegation risk compared with direct wallet authority, 
 
 Its default form is a session-scoped execution firewall for agents.
 
-Its stricter form is deterministic action authorization for one exact pre-approved payload.
+Its exact-body-hash form is deterministic action authorization for one exact pre-approved payload.
